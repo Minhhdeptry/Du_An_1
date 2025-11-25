@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /tech4tourism/
+RewriteBase /tour_management/
 
 # Nếu file hoặc thư mục tồn tại, bỏ qua
 RewriteCond %{REQUEST_FILENAME} !-f
