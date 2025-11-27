@@ -1,0 +1,9 @@
+RewriteEngine On
+RewriteBase /tour_management/
+
+# Nếu file hoặc thư mục tồn tại, bỏ qua
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Gửi tất cả request tới index.php
+RewriteRule ^(.*)$ index.php?route=$1 [QSA,L]
