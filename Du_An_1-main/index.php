@@ -32,8 +32,8 @@ match ($route) {
   // Categories
   '/categories' => (new AuthController())->SignUP(),
 
-
-  // 
+ // Tour (CRUD)
+  
 
 
 
