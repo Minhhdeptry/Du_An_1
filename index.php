@@ -13,35 +13,53 @@
 require_once './commons/env.php'; // Khai báo biến môi trường
 require_once './commons/function.php'; // Hàm hỗ trợ
 
+// Controllers
 require_once './controllers/DashboardController.php';
+require_once './controllers/TourController.php';
+require_once './controllers/BookingController.php';
 
 
 // Auth
 require_once './controllers/AuthController.php';
 
 // Route
-$route = '/' . ($_GET['route'] ?? '');
+$act = ($_GET['act'] ?? 'dashboard');
+$currentAct = $act;
 
-match ($route) {
+match ($act) {
 
-  // HDV
-  // Auth
-  '/sign-in' => (new AuthController())->SignIn(),
-  '/sign-up' => (new AuthController())->SignUP(),
+// ================= AUTH ===================
+    'sign-in'           => (new AuthController())->SignIn(),
+    'sign-up'           => (new AuthController())->SignUp(),
+
+
+// ================= TOUR ADMIN ===================
+    'admin-tour'        => (new TourController())->index($currentAct),
+    'admin-tour-create'    => (new TourController())->create($currentAct),
+    'admin-tour-store'  => (new TourController())->store(),
+    'admin-tour-edit'   => (new TourController())->edit($currentAct),
+    'admin-tour-update' => (new TourController())->update(),
+    'admin-tour-delete' => (new TourController())->delete(),
+
+// ================= BOOKING ADMIN ===================
+    'admin-booking'     => (new BookingController())->index($currentAct),
+    'admin-booking-edit'     => (new BookingController())->edit($currentAct),
+    'admin-booking-update'     => (new BookingController())->update(),
+    'admin-booking-delete'     => (new BookingController())->delete(),
+
 
   // Categories
-  '/categories' => (new AuthController())->SignUP(),
+  'categories' => (new AuthController())->SignUP(),
 
- // Tour (CRUD)
+
+
   
 
+// ================= DASHBOARD ===================
+  'dashboard'                 => (new DashboardController())->index($currentAct),
 
 
-
-  '/' => (new DashboardController())->Dashboard(),
-
+// ================= 404 ===================
   default => include './views/errorPage.php',
 };
 
-
-// Comment test branch mới để gộp vào main

@@ -1,61 +1,78 @@
 <?php
+class TourModel
+{
+    private $pdo;
 
-class TourModel {
-
-   
-    // Lấy tất cả tour
-   
-    public function getAll() {
-        $conn = connectDB();
-        $sql = "SELECT * FROM tours";
-        $stmt = $conn->query($sql);
-        return $stmt->fetchAll();
+    public function __construct()
+    {
+        require_once __DIR__ . "/../commons/function.php"; 
+        $this->pdo = connectDB(); // bạn đã dùng connectDB thì gọi đúng nó
     }
 
-   
-    // Lấy tour theo ID
-   
-    public function getById($id) {
-        $conn = connectDB();
-        $sql = "SELECT * FROM tours WHERE id = ?";
-        $stmt = $conn->prepare($sql);
+    public function getAll()
+    {
+        $sql = "SELECT * FROM tours ORDER BY created_at DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function store($data)
+    {
+        $sql = "INSERT INTO tours(code, title, short_desc, full_desc, base_price, duration_days, 
+                category_id, policy, supplier, image_url, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            $data["code"],
+            $data["title"],
+            $data["short_desc"],
+            $data["full_desc"],
+            $data["base_price"],
+            $data["duration_days"],
+            $data["category_id"],
+            $data["policy"],
+            $data["supplier"],
+            $data["image_url"],
+            $data["is_active"]
+        ]);
+    }
+
+    public function find($id)
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM tours WHERE id = ?");
         $stmt->execute([$id]);
-        return $stmt->fetch();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-   
-    // Thêm tour
-   
-    public function create($name, $price, $desc, $cate, $image) {
-        $conn = connectDB();
-        $sql = "INSERT INTO tours (name, price, description, category_id, image)
-                VALUES (?, ?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
+    public function update($data)
+    {
+        $sql = "UPDATE tours SET 
+                code=?, title=?, short_desc=?, full_desc=?, base_price=?, duration_days=?, 
+                category_id=?, policy=?, supplier=?, image_url=?, is_active=? 
+                WHERE id=?";
 
-        return $stmt->execute([$name, $price, $desc, $cate, $image]);
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            $data["code"],
+            $data["title"],
+            $data["short_desc"],
+            $data["full_desc"],
+            $data["base_price"],
+            $data["duration_days"],
+            $data["category_id"],
+            $data["policy"],
+            $data["supplier"],
+            $data["image_url"],
+            $data["is_active"],
+            $data["id"]
+        ]);
     }
 
-   
-    // Cập nhật tour
-   
-    public function update($id, $name, $price, $desc, $cate, $image) {
-        $conn = connectDB();
-        $sql = "UPDATE tours 
-                SET name = ?, price = ?, description = ?, category_id = ?, image = ?
-                WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-
-        return $stmt->execute([$name, $price, $desc, $cate, $image, $id]);
-    }
-
-    
-    // Xóa tour theo 
-   
-    public function delete($id) {
-        $conn = connectDB();
-        $sql = "DELETE FROM tours WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-
+    public function delete($id)
+    {
+        $stmt = $this->pdo->prepare("DELETE FROM tours WHERE id=?");
         return $stmt->execute([$id]);
     }
 }
