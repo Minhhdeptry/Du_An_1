@@ -17,6 +17,7 @@ require_once './commons/function.php'; // Hàm hỗ trợ
 require_once './controllers/DashboardController.php';
 require_once './controllers/TourController.php';
 require_once './controllers/BookingController.php';
+require_once './controllers/CategoryController.php';
 
 
 // Auth
@@ -47,9 +48,14 @@ match ($act) {
     'admin-booking-update'     => (new BookingController())->update(),
     'admin-booking-delete'     => (new BookingController())->delete(),
 
+// ================= CATEGORY ADMIN ===================
+    'admin-category'    => (new CategoryController())->index($currentAct),
+    'admin-category-create'    => (new CategoryController())->create($currentAct),
+    'admin-category-store'    => (new CategoryController())->store(),
+    'admin-category-edit'    => (new CategoryController())->edit($currentAct),
+    'admin-category-update'    => (new CategoryController())->update(),
+    'admin-category-delete'    => (new CategoryController())->delete(),
 
-  // Categories
-  'categories' => (new AuthController())->SignUP(),
 
 
 
