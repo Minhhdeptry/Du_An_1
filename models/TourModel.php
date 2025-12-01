@@ -5,7 +5,7 @@ class TourModel
 
     public function __construct()
     {
-        require_once __DIR__ . "/../commons/function.php"; 
+        require_once __DIR__ . "/../commons/function.php";
         $this->pdo = connectDB(); // bạn đã dùng connectDB thì gọi đúng nó
     }
 
@@ -16,6 +16,17 @@ class TourModel
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function searchByKeyword($keyword)
+    {
+        $sql = "SELECT * FROM tours WHERE title LIKE :kw ORDER BY id DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':kw' => "%$keyword%"
+        ]);
+        return $stmt->fetchAll();
+    }
+
 
     public function store($data)
     {

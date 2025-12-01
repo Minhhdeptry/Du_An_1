@@ -24,6 +24,14 @@ class TourController
         $tours = $this->model->getAll();   // tránh lỗi null
         $currentAct = $act;
 
+        $keyword = $_GET['keyword'] ?? '';
+
+        if ($keyword) {
+            $tours = $this->model->searchByKeyword($keyword);
+        } else {
+            $tours = $this->model->getAll();
+        }
+
         $view = "./views/admin/Tours/index.php";
         include "./views/layout/adminLayout.php";
     }

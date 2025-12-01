@@ -4,7 +4,18 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="page-title">Danh sách Booking</h1>
-        
+
+    </div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <form action="index.php" method="GET" class="form-inline">
+            <input type="hidden" name="act" value="admin-tour">
+
+            <input type="text" name="keyword" class="form-control mr-2" placeholder="Tìm theo tên, mã danh mục..."
+                value="<?= isset($_GET['keyword']) ? htmlspecialchars($_GET['keyword']) : '' ?>">
+
+            <button class="btn btn-primary">Tìm kiếm</button>
+        </form>
     </div>
 
     <table class="table table-bordered table-hover">
@@ -65,9 +76,8 @@
                             Sửa
                         </a>
 
-                        <a onclick="return confirm('Xóa booking này?')" 
-                           href="index.php?act=admin-booking-delete&id=<?= $bk['id'] ?>" 
-                           class="btn btn-sm btn-danger">
+                        <a onclick="return confirm('Xóa booking này?')"
+                            href="index.php?act=admin-booking-delete&id=<?= $bk['id'] ?>" class="btn btn-sm btn-danger">
                             Xóa
                         </a>
                     </td>
