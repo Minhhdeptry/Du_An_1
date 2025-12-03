@@ -15,7 +15,6 @@ class CategoryController
         $categories = $this->model->getAll();
         $currentAct = $act;
 
-        
 
         $view = "./views/admin/Category/index.php";
         include "./views/layout/adminLayout.php";

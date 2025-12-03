@@ -1,5 +1,6 @@
 <?php
-class BookingModel {
+class BookingModel
+{
     private $pdo;
 
     public function __construct()
@@ -9,7 +10,8 @@ class BookingModel {
     }
 
     // Lấy tất cả booking (kèm tên tour + ngày khởi hành)
-    public function getAll() {
+    public function getAll()
+    {
         $sql = "SELECT b.*,
                     ts.depart_date,
                     t.title AS tour_name
@@ -22,6 +24,29 @@ class BookingModel {
         $stm->execute();
         return $stm->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function searchByKeyword($keyword)
+    {
+        $sql = "SELECT 
+                b.*, 
+                t.title AS tour_name,
+                s.depart_date
+            FROM bookings b
+            JOIN tour_schedule s ON b.tour_schedule_id = s.id
+            JOIN tours t ON s.tour_id = t.id
+            WHERE b.booking_code LIKE :kw
+               OR b.contact_name LIKE :kw
+            ORDER BY b.id DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':kw' => "%$keyword%"
+        ]);
+
+        return $stmt->fetchAll();
+    }
+
+
 
 
     public function find($id)
@@ -41,8 +66,8 @@ class BookingModel {
         $stmt->execute([$id]);
         $r = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($r && !isset($r['total_people'])) {
-            $ad = isset($r['adults']) ? (int)$r['adults'] : 0;
-            $ch = isset($r['children']) ? (int)$r['children'] : 0;
+            $ad = isset($r['adults']) ? (int) $r['adults'] : 0;
+            $ch = isset($r['children']) ? (int) $r['children'] : 0;
             $r['total_people'] = $ad + $ch;
         }
         return $r;

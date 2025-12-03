@@ -29,9 +29,15 @@
                 <input type="text" name="keyword" class="form-control mr-2" placeholder="Tìm theo tên, mã tour..."
                     value="<?= isset($_GET['keyword']) ? htmlspecialchars($_GET['keyword']) : '' ?>">
 
-                <button class="btn btn-primary">Tìm kiếm</button>
+                <button class="btn btn-primary mr-2">Tìm kiếm</button>
+
+                <?php if (!empty($_GET['keyword'])): ?>
+                    <a href="index.php?act=admin-tour" class="btn btn-secondary">Xóa</a>
+                <?php endif; ?>
             </form>
+
         </div>
+
 
         <!-- Nếu $tours chưa có -> gán mảng rỗng để tránh lỗi -->
         <?php if (!isset($tours) || !is_array($tours))

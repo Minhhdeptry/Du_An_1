@@ -8,15 +8,23 @@
     </div>
     <div class="d-flex justify-content-between align-items-center mb-3">
 
-        <form action="index.php" method="GET" class="form-inline">
-            <input type="hidden" name="act" value="admin-tour">
+    <form action="index.php" method="GET" class="form-inline">
+        <input type="hidden" name="act" value="admin-booking">
 
-            <input type="text" name="keyword" class="form-control mr-2" placeholder="Tìm theo tên, mã danh mục..."
-                value="<?= isset($_GET['keyword']) ? htmlspecialchars($_GET['keyword']) : '' ?>">
+        <input type="text" name="keyword" 
+               class="form-control mr-2" 
+               placeholder="Tìm theo mã booking..." 
+               value="<?= isset($_GET['keyword']) ? htmlspecialchars($_GET['keyword']) : '' ?>">
 
-            <button class="btn btn-primary">Tìm kiếm</button>
-        </form>
-    </div>
+        <button class="btn btn-primary mr-2">Tìm kiếm</button>
+
+        <?php if (!empty($_GET['keyword'])): ?>
+            <a href="index.php?act=admin-booking" class="btn btn-secondary">Xóa</a>
+        <?php endif; ?>
+    </form>
+
+</div>
+
 
     <table class="table table-bordered table-hover">
         <thead class="thead-dark">

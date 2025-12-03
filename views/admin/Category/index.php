@@ -20,17 +20,6 @@
                 + Thêm danh mục
             </a>
         </div>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-
-            <form action="index.php" method="GET" class="form-inline">
-                <input type="hidden" name="act" value="admin-tour">
-
-                <input type="text" name="keyword" class="form-control mr-2" placeholder="Tìm theo tên, mã danh mục..."
-                    value="<?= isset($_GET['keyword']) ? htmlspecialchars($_GET['keyword']) : '' ?>">
-
-                <button class="btn btn-primary">Tìm kiếm</button>
-            </form>
-        </div>
 
         <?php if (!isset($categories) || !is_array($categories))
             $categories = []; ?>

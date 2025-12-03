@@ -19,13 +19,18 @@ class TourModel
 
     public function searchByKeyword($keyword)
     {
-        $sql = "SELECT * FROM tours WHERE title LIKE :kw ORDER BY id DESC";
+        $sql = "SELECT * FROM tours 
+            WHERE title LIKE :kw OR code LIKE :kw
+            ORDER BY id DESC";
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             ':kw' => "%$keyword%"
         ]);
+
         return $stmt->fetchAll();
     }
+
 
 
     public function store($data)

@@ -21,6 +21,7 @@ class CategoryModel
         $sql = "SELECT * FROM tour_category ORDER BY id DESC";
         return $this->pdo->query($sql)->fetchAll();
     }
+    
 
     public function find($id)
     {

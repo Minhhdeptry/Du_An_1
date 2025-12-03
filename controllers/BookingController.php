@@ -16,6 +16,16 @@ class BookingController {
         $pageTitle = "Quản lý Booking";
         $bookings = $this->model->getAll();
         $currentAct = $act;
+
+        $keyword = trim($_GET['keyword'] ?? '');
+
+        if ($keyword !== '') {
+            $bookings = $this->model->searchByKeyword($keyword);
+        } else {
+            $bookings = $this->model->getAll();
+        }
+
+
         $view = "views/admin/Booking/index.php";
         include "./views/layout/adminLayout.php";
     }
