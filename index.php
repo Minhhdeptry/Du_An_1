@@ -50,8 +50,11 @@ match ($act) {
 // ================= BOOKING ADMIN ===================
     'admin-booking'     => (new BookingController())->index($currentAct),
     'admin-booking-edit'     => (new BookingController())->edit($currentAct),
+    'admin-booking-create'     => (new BookingController())->create($currentAct),
     'admin-booking-update'     => (new BookingController())->update(),
     'admin-booking-delete'     => (new BookingController())->delete(),
+    'admin-booking-cancel'     => (new BookingController())->cancel(),
+    'admin-booking-store'     => (new BookingController())->store(),
 
 // ================= CATEGORY ADMIN ===================
     'admin-category'    => (new CategoryController())->index($currentAct),
