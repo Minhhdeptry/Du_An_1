@@ -1,5 +1,10 @@
 <div class="container mt-4">
-    <h3 class="mb-3">Tạo lịch khởi hành</h3>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="page-title">➕ Thêm Lịch khởi hành mới</h2>
+        <a href="index.php?act=admin-schedule" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Quay lại
+        </a>
+    </div>
 
     <form method="POST" action="index.php?act=admin-schedule-store" class="card p-4 shadow-sm">
 
@@ -8,9 +13,13 @@
             <select name="tour_id" class="form-control" required>
                 <option value="">-- Chọn tour --</option>
                 <?php foreach ($tours as $t): ?>
-                    <option value="<?= $t['id'] ?>"><?= $t['title'] ?></option>
+                    <option value="<?= $t['id'] ?>" <?= isset($schedule) && $t['id'] == $schedule['tour_id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($t['title']) ?>
+                        (<?= htmlspecialchars($t['category_name'] ?? 'Chưa có') ?>)
+                    </option>
                 <?php endforeach; ?>
             </select>
+
         </div>
 
         <div class="form-row">

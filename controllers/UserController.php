@@ -16,9 +16,17 @@ class UserController
         $currentAct = $act;
 
         if ($keyword) {
-            $users = $this->user->searchCustomer($keyword);
+            // Lấy tất cả khách kèm số tour đã đặt
+            $allUsers = $this->user->getAllWithBookingCount();
+
+            // Lọc theo keyword
+            $users = array_filter($allUsers, function ($u) use ($keyword) {
+                return str_contains(strtolower($u['full_name']), strtolower($keyword)) ||
+                    str_contains($u['phone'], $keyword);
+            });
         } else {
-            $users = $this->user->getAllCustomers();
+            // Lấy tất cả khách kèm số tour đã đặt
+            $users = $this->user->getAllWithBookingCount();
         }
 
         $view = "./views/admin/User/index.php";
@@ -26,11 +34,12 @@ class UserController
     }
 
 
+
     public function create($act)
     {
         $currentAct = $act;
         $view = "./views/admin/User/create.php";
-        require_once './views/admin/User/create.php';
+        include "./views/layout/adminLayout.php";
     }
 
     public function store()
@@ -51,7 +60,7 @@ class UserController
         $currentAct = $act;
 
         $view = "./views/admin/User/edit.php";
-        require_once './views/admin/User/edit.php';
+        include "./views/layout/adminLayout.php";
     }
 
     public function update()
@@ -66,7 +75,7 @@ class UserController
     public function history($act)
     {
         $user_id = $_GET['id'] ?? null;
-                $currentAct = $act;
+        $currentAct = $act;
 
         if (!$user_id) {
             header("Location: ?act=admin-user");
@@ -77,7 +86,7 @@ class UserController
         $bookings = $this->user->getBookingHistory($user_id);
 
         $view = "./views/admin/User/history.php";
-        require_once './views/admin/User/history.php';
+        include "./views/layout/adminLayout.php";
     }
 
 

@@ -11,10 +11,10 @@ class CategoryController
 
     public function index($act)
     {
+        $keyword = $_GET['keyword'] ?? '';
+        $categories = $this->model->getAll($keyword);
         $pageTitle = "Quản lý Danh mục Tour";
-        $categories = $this->model->getAll();
         $currentAct = $act;
-
 
         $view = "./views/admin/Category/index.php";
         include "./views/layout/adminLayout.php";
@@ -22,7 +22,7 @@ class CategoryController
 
     public function create($act)
     {
-        $pageTitle = "Thêm danh mục";
+        $pageTitle = "Thêm danh mục Tour";
         $currentAct = $act;
 
         $view = "./views/admin/Category/create.php";
@@ -31,58 +31,58 @@ class CategoryController
 
     public function store()
     {
-        if (!isset($_POST["name"])) {
+        if (!isset($_POST['code']) || !isset($_POST['name'])) {
             die("Thiếu dữ liệu");
         }
 
-        $this->model->store($_POST);
+        // Check duplicate code
+        if ($this->model->codeExists($_POST['code'])) {
+            die("Mã danh mục đã tồn tại!");
+        }
 
+        $this->model->store($_POST);
         header("Location: index.php?act=admin-category");
         exit;
     }
 
     public function edit($act)
     {
-        $id = $_GET["id"] ?? null;
-        if (!$id) {
-            header("Location: index.php?act=admin-category");
-            exit;
-        }
+        $id = $_GET['id'] ?? null;
+        if (!$id) header("Location: index.php?act=admin-category");
 
         $category = $this->model->find($id);
-        if (!$category) {
-            header("Location: index.php?act=admin-category");
-            exit;
-        }
+        if (!$category) header("Location: index.php?act=admin-category");
 
-        $pageTitle = "Sửa danh mục";
+        $pageTitle = "Sửa danh mục Tour";
         $currentAct = $act;
-
-        // biến truyền vào view phải đặt giống trong view: $category
         $view = "./views/admin/Category/edit.php";
         include "./views/layout/adminLayout.php";
     }
 
     public function update()
     {
-        if (!isset($_POST["id"])) {
-            die("Thiếu ID");
+        $id = $_POST['id'] ?? null;
+        if (!$id) die("Thiếu ID");
+
+        // Check duplicate code
+        if ($this->model->codeExists($_POST['code'], $id)) {
+            die("Mã danh mục đã tồn tại!");
         }
 
-        $id = $_POST["id"];
         $this->model->update($id, $_POST);
-
         header("Location: index.php?act=admin-category");
         exit;
     }
 
     public function delete()
     {
-        $id = $_GET["id"] ?? null;
+        $id = $_GET['id'] ?? null;
         if ($id) {
-            $this->model->delete($id);
+            $success = $this->model->delete($id);
+            if (!$success) {
+                die("Danh mục đang có tour, không thể xóa!");
+            }
         }
-
         header("Location: index.php?act=admin-category");
         exit;
     }

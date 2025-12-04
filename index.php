@@ -54,7 +54,7 @@ match ($act) {
     'admin-booking-update'     => (new BookingController())->update(),
     'admin-booking-delete'     => (new BookingController())->delete(),
     'admin-booking-cancel'     => (new BookingController())->cancel(),
-    'admin-booking-store'     => (new BookingController())->store(),
+    // 'admin-booking-store'     => (new BookingController())->store(),
 
 // ================= CATEGORY ADMIN ===================
     'admin-category'    => (new CategoryController())->index($currentAct),
