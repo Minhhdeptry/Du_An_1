@@ -21,6 +21,7 @@ require_once './controllers/CategoryController.php';
 require_once './controllers/ScheduleController.php';
 require_once './controllers/StaffController.php';
 require_once './controllers/UserController.php';
+require_once './controllers/PaymentController.php';
 
 
 // Auth
@@ -84,8 +85,11 @@ match ($act) {
     'admin-user-delete'    => (new UserController())->delete(),
     'admin-user-history'    => (new UserController())->history($currentAct),
 
-// ================= USER ADMIN ===================
-    // 'admin-user'    => (new ScheduleController())->index($currentAct),
+// ================= PAYMENT ADMIN ===================
+    'admin-payment'               => (new PaymentController())->index($currentAct),
+    'admin-payment-history'               => (new PaymentController())->history($currentAct),
+    'admin-payment-confirm'       => (new PaymentController())->confirm(),
+    'admin-payment-cancel'       => (new PaymentController())->cancel(),
 
 
 
