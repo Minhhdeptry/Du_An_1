@@ -12,7 +12,7 @@ class StaffModel
     // Lấy danh sách nhân viên + thông tin user nếu cần
     public function getAll()
     {
-        $sql = "SELECT s.*, u.full_name, u.email 
+        $sql = "SELECT s.*, u.full_name, u.email, u.role
                 FROM staffs s
                 LEFT JOIN users u ON u.id = s.user_id
                 ORDER BY s.id DESC";
@@ -21,6 +21,27 @@ class StaffModel
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+public function search($keyword)
+{
+    $sql = "SELECT s.*, u.full_name, u.email, u.role
+            FROM staffs s
+            LEFT JOIN users u ON u.id = s.user_id
+            WHERE u.role = 'HDV'
+              AND (
+                  COALESCE(u.full_name, '') LIKE :kw COLLATE utf8mb4_unicode_ci
+                  OR COALESCE(u.email, '') LIKE :kw COLLATE utf8mb4_unicode_ci
+                  OR COALESCE(s.phone, '') LIKE :kw
+                  OR COALESCE(s.id_number, '') LIKE :kw
+              )
+            ORDER BY s.id DESC";
+
+    $stmt = $this->pdo->prepare($sql);
+    $stmt->execute([':kw' => "%$keyword%"]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
+
 
     public function store($data)
     {

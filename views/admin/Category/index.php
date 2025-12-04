@@ -1,89 +1,141 @@
-<!DOCTYPE html>
-<html lang="vi">
+<style>
+    .table-img {
+        width: 80px;
+        height: 50px;
+        object-fit: cover;
+        border-radius: 5px;
+        transition: transform 0.2s;
+    }
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danh mục Tour</title>
+    .table-img:hover {
+        transform: scale(1.1);
+    }
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-</head>
+    .card {
+        border-radius: 12px;
+    }
 
-<body class="bg-light">
+    .page-title {
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
 
-    <div class="container mt-4">
+    .btn-sm {
+        min-width: 60px;
+    }
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1 class="page-title">Danh mục Tour</h1>
+    .table thead th {
+        vertical-align: middle;
+        text-align: center;
+    }
 
-            <a href="index.php?act=admin-category-create" class="btn btn-primary">
-                + Thêm danh mục
-            </a>
-        </div>
+    .table tbody td {
+        vertical-align: middle;
+        text-align: center;
+    }
 
-        <?php if (!isset($categories) || !is_array($categories))
-            $categories = []; ?>
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.075);
+    }
 
-        <div class="card shadow-sm">
-            <div class="card-body p-0">
+    .table-hover thead tr:hover {
+        background-color: #343a40 !important;
+        /* giữ màu dark cho thead */
+    }
 
-                <table class="table table-striped table-bordered mb-0">
-                    <thead class="thead-dark">
-                        <tr>
-                            <th width="5%">ID</th>
-                            <th width="10%">Mã</th>
-                            <th width="25%">Tên danh mục</th>
-                            <th width="30%">Ghi chú</th>
-                            <th width="10%">Trạng thái</th>
-                            <th width="20%">Hành động</th>
-                        </tr>
-                    </thead>
 
-                    <tbody>
-                        <?php if (count($categories) == 0): ?>
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-4">
-                                    <i>Chưa có danh mục nào</i>
-                                </td>
-                            </tr>
-                        <?php endif; ?>
 
-                        <?php foreach ($categories as $c): ?>
-                            <tr>
-                                <td><?= $c["id"] ?></td>
-                                <td><?= $c["code"] ?></td>
-                                <td><?= $c["name"] ?></td>
-                                <td><?= $c["note"] ?></td>
 
-                                <td>
-                                    <span class="badge badge-<?= $c["is_active"] ? 'success' : 'secondary' ?>">
-                                        <?= $c["is_active"] ? "Hiển thị" : "Ẩn" ?>
-                                    </span>
-                                </td>
+    .search-form .form-control {
+        min-width: 250px;
+    }
+</style>
+<div class="container mt-5">
 
-                                <td>
-                                    <a href="index.php?act=admin-category-edit&id=<?= $c['id'] ?>"
-                                        class="btn btn-sm btn-warning">
-                                        Sửa
-                                    </a>
-
-                                    <a href="index.php?act=admin-category-delete&id=<?= $c['id'] ?>"
-                                        onclick="return confirm('Bạn có chắc muốn xóa danh mục này?')"
-                                        class="btn btn-sm btn-danger">
-                                        Xóa
-                                    </a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-
-                </table>
-
-            </div>
-        </div>
-
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="page-title">📋 Danh mục Tour</h1>
+        <a href="index.php?act=admin-category-create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Thêm danh mục
+        </a>
     </div>
 
-</body>
+    <!-- Form tìm kiếm -->
+    <form class="row g-2 mb-4" method="get" action="index.php">
+        <input type="hidden" name="act" value="admin-category">
+        <div class="col-auto">
+            <input type="text" name="keyword" class="form-control" placeholder="Tìm theo tên, mã danh mục..."
+                value="<?= htmlspecialchars($_GET['keyword'] ?? '') ?>">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary"><i class="bi bi-search"></i> Tìm kiếm</button>
+        </div>
+        <?php if (!empty($_GET['keyword'])): ?>
+            <div class="col-auto">
+                <a href="index.php?act=admin-category" class="btn btn-secondary">Xóa</a>
+            </div>
+        <?php endif; ?>
+    </form>
 
-</html>
+    <!-- Bảng danh mục -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover table-bordered align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>STT</th>
+                        <th>Mã</th>
+                        <th>Tên danh mục</th>
+                        <th>Ghi chú</th>
+                        <th>Số tour</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($categories as $key => $c): ?>
+                        <tr>
+                            <td><?= $key + 1 ?></td>
+                            <td><?= $c['code'] ?></td>
+                            <td class="text-start"><?= $c['name'] ?></td>
+                            <td class="text-start"><?= $c['note'] ?></td>
+                            <td><?= $c['tour_count'] ?></td>
+                            <td>
+                                <span class="badge <?= $c["is_active"] ? 'bg-success' : 'bg-secondary' ?>">
+                                    <?= $c["is_active"] ? "Hiển thị" : "Ẩn" ?>
+                                </span>
+                            </td>
+                            <td>
+                                <a href="index.php?act=admin-category-edit&id=<?= $c['id'] ?>"
+                                    class="btn btn-sm btn-warning me-1 mb-1">
+                                    <i class="bi bi-pencil"></i> Sửa
+                                </a>
+
+                                <?php if ($c['tour_count'] == 0): ?>
+                                    <a href="index.php?act=admin-category-delete&id=<?= $c['id'] ?>"
+                                        class="btn btn-sm btn-danger mb-1"
+                                        onclick="return confirm('Bạn có chắc muốn xóa danh mục này?')">
+                                        <i class="bi bi-trash"></i> Xóa
+                                    </a>
+                                <?php else: ?>
+                                    <button class="btn btn-sm btn-secondary mb-1" disabled>
+                                        <i class="bi bi-x-circle"></i> Không thể xóa
+                                    </button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+
+                    <?php if (count($categories) == 0): ?>
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">Chưa có danh mục nào</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS + Icons -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">

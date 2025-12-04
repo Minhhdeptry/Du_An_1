@@ -12,7 +12,12 @@
 
     <div class="container mt-5">
 
-        <h2 class="mb-4">Sửa Tour</h2>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="page-title">✏️ Sửa Tour</h2>
+            <a href="index.php?act=admin-tour" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại
+            </a>
+        </div>
 
         <form method="post" action="index.php?act=admin-tour-update" enctype="multipart/form-data"
             class="card p-4 shadow">

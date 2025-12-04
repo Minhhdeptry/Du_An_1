@@ -15,12 +15,17 @@ class ScheduleController
     public function index($act)
     {
         $pageTitle = "Quản lý Lịch khởi hành";
-        $schedules = $this->model->getAll();
         $currentAct = $act;
+
+        $keyword = trim($_GET['keyword'] ?? '');
+        $schedules = $keyword !== ''
+            ? $this->model->searchByKeyword($keyword)
+            : $this->model->getAll();
 
         $view = "./views/admin/Schedule/index.php";
         include "./views/layout/adminLayout.php";
     }
+
 
     public function create($act)
     {

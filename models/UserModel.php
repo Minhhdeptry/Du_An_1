@@ -89,17 +89,37 @@ class UserModel
     public function getBookingHistory($user_id)
     {
         $sql = "
-        SELECT b.*, t.title AS tour_name, s.depart_date
+        SELECT b.id, b.booking_code, t.title AS tour_name, s.depart_date,
+               b.total_people, b.total_amount, b.status
         FROM bookings b
         JOIN tour_schedule s ON b.tour_schedule_id = s.id
         JOIN tours t ON s.tour_id = t.id
         WHERE b.user_id = :uid
         ORDER BY b.id DESC
     ";
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':uid' => $user_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getAllWithBookingCount()
+    {
+    $sql = "SELECT u.*, 
+                   COUNT(b.id) AS total_bookings, 
+                   IFNULL(SUM(b.total_amount), 0) AS total_paid
+            FROM users u
+            LEFT JOIN bookings b ON b.user_id = u.id
+            WHERE u.role = 'CUSTOMER'
+            GROUP BY u.id
+            ORDER BY u.id ASC";
+
+    $stmt = $this->pdo->prepare($sql);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
 
 
     public function delete($id)

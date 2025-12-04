@@ -23,19 +23,37 @@ class TourModel
     }
 
 
-    public function searchByKeyword($keyword)
+    public function searchByKeywordWithStatus($keyword)
     {
-        $sql = "SELECT * FROM tours 
-            WHERE title LIKE :kw OR code LIKE :kw
-            ORDER BY id DESC";
-
+        $sql = "SELECT t.*, c.name AS category_name
+            FROM tours t
+            LEFT JOIN tour_category c ON t.category_id = c.id
+            WHERE t.title LIKE :kw OR t.code LIKE :kw
+            ORDER BY t.id DESC";
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            ':kw' => "%$keyword%"
-        ]);
+        $stmt->execute([':kw' => "%$keyword%"]);
+        $tours = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return $stmt->fetchAll();
+        // thêm display_status
+        foreach ($tours as &$tour) {
+            $stmt2 = $this->pdo->prepare("SELECT status FROM tour_schedule WHERE tour_id = ?");
+            $stmt2->execute([$tour['id']]);
+            $schedules = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+            $hasOpen = false;
+            foreach ($schedules as $s) {
+                if ($s['status'] === 'OPEN') {
+                    $hasOpen = true;
+                    break;
+                }
+            }
+
+            $tour['display_status'] = $hasOpen ? 'Hiển thị' : 'Ẩn';
+        }
+
+        return $tours;
     }
+
 
 
 
@@ -94,12 +112,51 @@ class TourModel
     }
 
     // lấy tất cả tour kèm tên danh mục
-    public function getAllWithCategory()
+    public function getAllWithCategoryStatus()
     {
         $sql = "SELECT t.*, c.name AS category_name
             FROM tours t
             LEFT JOIN tour_category c ON t.category_id = c.id
             ORDER BY t.code ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $tours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Duyệt từng tour để xác định trạng thái hiển thị dựa trên lịch
+        foreach ($tours as &$tour) {
+            $stmt2 = $this->pdo->prepare("SELECT status FROM tour_schedule WHERE tour_id = ?");
+            $stmt2->execute([$tour['id']]);
+            $schedules = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+            $hasOpen = false;
+            foreach ($schedules as $s) {
+                if ($s['status'] === 'OPEN') {
+                    $hasOpen = true;
+                    break;
+                }
+            }
+
+            // Thêm cột ảo 'display_status' dựa trên lịch
+            $tour['display_status'] = $hasOpen ? 'Hiển thị' : 'Ẩn';
+        }
+
+        return $tours;
+    }
+
+
+    // Dành cho client
+    public function getAllAvailableTours()
+    {
+        $sql = "SELECT t.*, c.name AS category_name
+            FROM tours t
+            LEFT JOIN tour_category c ON t.category_id = c.id
+            WHERE t.is_active = 1
+              AND EXISTS (
+                  SELECT 1 FROM tour_schedule ts
+                  WHERE ts.tour_id = t.id AND ts.status = 'OPEN'
+              )
+            ORDER BY t.code ASC";
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

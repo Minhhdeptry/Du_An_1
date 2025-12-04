@@ -51,6 +51,7 @@ class DashboardController
 
         // --------------------------------------
 
+        $currentAct = $act;
         $pageTitle = "Dashboard";
         $view = "./views/admin/Dashboard/index.php";
         include "./views/layout/adminLayout.php";

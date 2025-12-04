@@ -1,5 +1,10 @@
 <div class="container mt-4">
-    <h2 class="mb-3">Thêm Khách hàng</h2>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="page-title">➕ Thêm Khách hàng</h2>
+        <a href="index.php?act=admin-user" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Quay lại
+        </a>
+    </div>
 
     <form action="index.php?act=admin-user-store" method="POST" class="card p-4 shadow-sm">
 

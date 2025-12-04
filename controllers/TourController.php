@@ -22,8 +22,8 @@ class TourController
 
         $keyword = trim($_GET['keyword'] ?? '');
         $tours = $keyword !== ''
-            ? $this->model->searchByKeyword($keyword)
-            : $this->model->getAllWithCategory(); // join category để hiển thị tên danh mục
+            ? $this->model->searchByKeywordWithStatus($keyword)
+            : $this->model->getAllWithCategoryStatus(); // join category để hiển thị tên danh mục
 
         $view = "./views/admin/Tours/index.php";
         include "./views/layout/adminLayout.php";

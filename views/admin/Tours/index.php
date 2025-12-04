@@ -130,10 +130,12 @@
                                     ?>
                                 </td>
                                 <td>
-                                    <span class="badge <?= $t["is_active"] ? 'bg-success' : 'bg-secondary' ?>">
-                                        <?= $t["is_active"] ? "Hiển thị" : "Ẩn" ?>
+                                    <span
+                                        class="badge <?= $t['display_status'] === 'Hiển thị' ? 'bg-success' : 'bg-secondary' ?>">
+                                        <?= $t['display_status'] ?>
                                     </span>
                                 </td>
+
                                 <td>
                                     <a href="index.php?act=admin-tour-edit&id=<?= $t['id'] ?>"
                                         class="btn btn-sm btn-warning me-1">Sửa</a>

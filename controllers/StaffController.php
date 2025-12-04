@@ -21,12 +21,20 @@ class StaffController
     public function index($act = null)
     {
         $pageTitle = "Quản lý Nhân viên";
-        $staffs = $this->staffModel->getAll();   // array
         $currentAct = $act;
+
+        $keyword = trim($_GET['keyword'] ?? '');
+
+        if ($keyword !== '') {
+            $staffs = $this->staffModel->search($keyword);
+        } else {
+            $staffs = $this->staffModel->getAll(); // chỉ lấy HDV
+        }
 
         $view = "./views/admin/Staff/index.php";
         include "./views/layout/adminLayout.php";
     }
+
 
     // form thêm
     public function create($act = null)

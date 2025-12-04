@@ -9,7 +9,12 @@ $statusText = [
 
 <div class="container mt-4">
 
-    <h3 class="mb-3">Tạo Booking Mới</h3>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="page-title">➕ Thêm Booking</h2>
+        <a href="index.php?act=admin-booking" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Quay lại
+        </a>
+    </div>
 
     <form action="index.php?act=admin-booking-store" method="POST">
 

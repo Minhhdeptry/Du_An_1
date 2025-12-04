@@ -1,5 +1,10 @@
 <div class="container mt-4">
-    <h2 class="mb-3">Sửa Nhân viên</h2>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="page-title">✏️ Sửa Nhân viên</h2>
+        <a href="index.php?act=admin-staff" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Quay lại
+        </a>
+    </div>
 
     <form action="index.php?act=admin-staff-update" method="POST" class="card p-4 shadow-sm">
         <input type="hidden" name="id" value="<?= $staff['id'] ?>">
