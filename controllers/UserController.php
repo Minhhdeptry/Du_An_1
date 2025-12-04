@@ -21,13 +21,15 @@ class UserController
             $users = $this->user->getAllCustomers();
         }
 
-        require_once './views/admin/User/index.php';
+        $view = "./views/admin/User/index.php";
+        include "./views/layout/adminLayout.php";
     }
 
 
     public function create($act)
     {
         $currentAct = $act;
+        $view = "./views/admin/User/create.php";
         require_once './views/admin/User/create.php';
     }
 
@@ -48,7 +50,7 @@ class UserController
         $row = $this->user->find($id);
         $currentAct = $act;
 
-
+        $view = "./views/admin/User/edit.php";
         require_once './views/admin/User/edit.php';
     }
 
@@ -74,6 +76,7 @@ class UserController
         $user = $this->user->find($user_id);
         $bookings = $this->user->getBookingHistory($user_id);
 
+        $view = "./views/admin/User/history.php";
         require_once './views/admin/User/history.php';
     }
 
