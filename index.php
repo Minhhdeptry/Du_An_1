@@ -54,6 +54,7 @@ match ($act) {
   'admin-booking-cancel' => (new BookingController())->cancel(),
   'admin-booking-create' => (new BookingController())->createForm($currentAct),
   'admin-booking-store' => (new BookingController())->store(),
+  'admin-booking-confirm' => (new BookingController())->confirm(),
   // Xóa item dùng deleteItem()
   'admin-booking-item-delete' => (new BookingController())->deleteItem(),
 

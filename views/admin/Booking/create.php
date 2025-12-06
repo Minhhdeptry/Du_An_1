@@ -1,5 +1,4 @@
 <?php
-// Lấy old data nếu có lỗi
 $old = $_SESSION['old_data'] ?? [];
 unset($_SESSION['old_data']);
 ?>
@@ -28,21 +27,60 @@ unset($_SESSION['old_data']);
                 <h5 class="mb-0">🎯 Bước 1: Chọn Tour</h5>
             </div>
             <div class="card-body">
+                
+                <!-- Toggle Mode -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Tour <span class="text-danger">*</span></label>
-                    <select name="tour_id" id="tour_id" class="form-select" required>
-                        <option value="">-- Chọn tour --</option>
-                        <?php foreach ($tours as $t): ?>
-                            <option value="<?= $t['id'] ?>"
-                                data-duration="<?= $t['duration_days'] ?>"
-                                <?= ($old['tour_id'] ?? '') == $t['id'] ? 'selected' : '' ?>>
-                                [<?= htmlspecialchars($t['code']) ?>] <?= htmlspecialchars($t['title']) ?>
-                                (<?= $t['duration_days'] ?> ngày - <?= htmlspecialchars($t['category_name'] ?? 'N/A') ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="tour_mode" id="mode_existing" 
+                               value="existing" checked onclick="switchMode('existing')">
+                        <label class="btn btn-outline-primary" for="mode_existing">
+                            <i class="bi bi-list-ul"></i> Chọn tour có sẵn
+                        </label>
+
+                        <input type="radio" class="btn-check" name="tour_mode" id="mode_custom" 
+                               value="custom" onclick="switchMode('custom')">
+                        <label class="btn btn-outline-success" for="mode_custom">
+                            <i class="bi bi-pencil-square"></i> Nhập tour mới
+                        </label>
+                    </div>
                 </div>
 
+                <!-- Mode 1: Chọn tour có sẵn -->
+                <div id="existingTourSection">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tour có sẵn <span class="text-danger">*</span></label>
+                        <select name="tour_id" id="tour_id" class="form-select">
+                            <option value="">-- Chọn tour --</option>
+                            <?php foreach ($tours as $t): ?>
+                                <option value="<?= $t['id'] ?>"
+                                    data-duration="<?= $t['duration_days'] ?>"
+                                    data-adult-price="<?= $t['adult_price'] ?>"
+                                    data-child-price="<?= $t['child_price'] ?>"
+                                    <?= ($old['tour_id'] ?? '') == $t['id'] ? 'selected' : '' ?>>
+                                    [<?= htmlspecialchars($t['code']) ?>] <?= htmlspecialchars($t['title']) ?>
+                                    (<?= $t['duration_days'] ?> ngày - <?= htmlspecialchars($t['category_name'] ?? 'N/A') ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Mode 2: Nhập tour mới -->
+                <div id="customTourSection" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tên tour theo yêu cầu <span class="text-danger">*</span></label>
+                        <input type="text" name="custom_tour_name" id="custom_tour_name" 
+                               class="form-control form-control-lg" 
+                               placeholder="VD: Tour Sapa 3N2Đ - Đoàn riêng gia đình Nguyễn Văn A"
+                               value="<?= htmlspecialchars($old['custom_tour_name'] ?? '') ?>">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> 
+                            Nhập tên tour tự do cho các yêu cầu đặc biệt không có trong danh sách
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Ngày đi/về -->
                 <div class="row">
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Ngày khởi hành <span class="text-danger">*</span></label>
@@ -51,7 +89,7 @@ unset($_SESSION['old_data']);
                                min="<?= date('Y-m-d') ?>" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Ngày về <small class="text-muted">(tùy chọn)</small></label>
+                        <label class="form-label fw-bold">Ngày về</label>
                         <input type="date" name="return_date" id="return_date" class="form-control" 
                                value="<?= htmlspecialchars($old['return_date'] ?? '') ?>"
                                min="<?= date('Y-m-d') ?>">
@@ -75,7 +113,7 @@ unset($_SESSION['old_data']);
                                oninput="updateTotals()">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Giá trẻ em (VNĐ) <small class="text-muted">(dưới 10 tuổi)</small></label>
+                        <label class="form-label fw-bold">Giá trẻ em (VNĐ)</label>
                         <input type="number" name="price_children" id="price_children" class="form-control" 
                                value="<?= htmlspecialchars($old['price_children'] ?? '0') ?>"
                                min="0" step="1000" placeholder="VD: 3000000"
@@ -85,7 +123,7 @@ unset($_SESSION['old_data']);
             </div>
         </div>
 
-        <!-- BƯỚC 3: THÔNG TIN KHÁCH HÀNG -->
+        <!-- BƯỚC 3: THÔNG TIN KHÁCH -->
         <div class="card mb-3 shadow-sm">
             <div class="card-header bg-warning">
                 <h5 class="mb-0">👤 Bước 3: Thông tin khách hàng</h5>
@@ -119,7 +157,7 @@ unset($_SESSION['old_data']);
                                min="0" required oninput="updateTotals()">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-bold">Trẻ em (dưới 10 tuổi)</label>
+                        <label class="form-label fw-bold">Trẻ em</label>
                         <input type="number" name="children" id="children" class="form-control" 
                                value="<?= htmlspecialchars($old['children'] ?? '0') ?>" 
                                min="0" oninput="updateTotals()">
@@ -139,26 +177,20 @@ unset($_SESSION['old_data']);
             </div>
             <div class="card-body">
                 <textarea name="special_request" class="form-control" rows="3" 
-                          placeholder="VD: Cần phòng đơn, ăn chay, xe riêng, hướng dẫn viên tiếng Anh..."><?= htmlspecialchars($old['special_request'] ?? '') ?></textarea>
+                          placeholder="VD: Cần phòng đơn, ăn chay, xe riêng..."><?= htmlspecialchars($old['special_request'] ?? '') ?></textarea>
             </div>
         </div>
 
-        <!-- BƯỚC 5: DỊCH VỤ BỔ SUNG (TÙY CHỌN) -->
+        <!-- BƯỚC 5: DỊCH VỤ BỔ SUNG -->
         <div class="card mb-3 shadow-sm">
             <div class="card-header bg-secondary text-white">
                 <h5 class="mb-0">🛎️ Bước 5: Dịch vụ bổ sung (tùy chọn)</h5>
             </div>
             <div class="card-body">
-                <div id="items-container">
-                    <!-- Items sẽ được thêm vào đây -->
-                </div>
+                <div id="items-container"></div>
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="addItemRow()">
                     + Thêm dịch vụ
                 </button>
-                <small class="text-muted d-block mt-2">
-                    <i class="bi bi-info-circle"></i> 
-                    Dịch vụ bổ sung: Phòng đơn, Bảo hiểm, Bữa ăn đặc biệt, Thuê xe riêng...
-                </small>
             </div>
         </div>
 
@@ -197,33 +229,66 @@ unset($_SESSION['old_data']);
 <script>
 let itemIndex = 0;
 
-// Auto calculate return date
+// Switch giữa 2 mode
+function switchMode(mode) {
+    const existingSection = document.getElementById('existingTourSection');
+    const customSection = document.getElementById('customTourSection');
+    const tourSelect = document.getElementById('tour_id');
+    const customInput = document.getElementById('custom_tour_name');
+    
+    if (mode === 'existing') {
+        existingSection.style.display = 'block';
+        customSection.style.display = 'none';
+        tourSelect.required = true;
+        customInput.required = false;
+        customInput.value = ''; // Clear custom input
+    } else {
+        existingSection.style.display = 'none';
+        customSection.style.display = 'block';
+        tourSelect.required = false;
+        customInput.required = true;
+        tourSelect.value = ''; // Clear select
+    }
+}
+
+// Auto-fill giá khi chọn tour có sẵn
 document.getElementById('tour_id').addEventListener('change', function() {
     const selected = this.selectedOptions[0];
-    const duration = parseInt(selected.dataset.duration || 0);
-    const departDate = document.getElementById('depart_date').value;
-    
-    if (departDate && duration > 0) {
-        const returnDate = new Date(departDate);
-        returnDate.setDate(returnDate.getDate() + duration);
-        document.getElementById('return_date').value = returnDate.toISOString().split('T')[0];
+    if (selected && selected.value) {
+        const duration = parseInt(selected.dataset.duration || 0);
+        const adultPrice = parseFloat(selected.dataset.adultPrice || 0);
+        const childPrice = parseFloat(selected.dataset.childPrice || 0);
+        
+        // Fill giá
+        document.getElementById('price_adult').value = adultPrice;
+        document.getElementById('price_children').value = childPrice;
+        
+        // Auto calculate return date
+        const departDate = document.getElementById('depart_date').value;
+        if (departDate && duration > 0) {
+            const returnDate = new Date(departDate);
+            returnDate.setDate(returnDate.getDate() + duration);
+            document.getElementById('return_date').value = returnDate.toISOString().split('T')[0];
+        }
+        
+        updateTotals();
     }
 });
 
-// Auto calculate return date when depart_date changes
+// Auto calculate return date
 document.getElementById('depart_date').addEventListener('change', function() {
     const tourSelect = document.getElementById('tour_id');
     const selected = tourSelect.selectedOptions[0];
-    const duration = parseInt(selected.dataset.duration || 0);
-    
-    if (this.value && duration > 0) {
-        const returnDate = new Date(this.value);
-        returnDate.setDate(returnDate.getDate() + duration);
-        document.getElementById('return_date').value = returnDate.toISOString().split('T')[0];
+    if (selected && selected.value) {
+        const duration = parseInt(selected.dataset.duration || 0);
+        if (this.value && duration > 0) {
+            const returnDate = new Date(this.value);
+            returnDate.setDate(returnDate.getDate() + duration);
+            document.getElementById('return_date').value = returnDate.toISOString().split('T')[0];
+        }
     }
 });
 
-// Cập nhật tổng tiền
 function updateTotals() {
     const adults = parseInt(document.getElementById('adults').value || 0);
     const children = parseInt(document.getElementById('children').value || 0);
@@ -234,7 +299,6 @@ function updateTotals() {
     
     const tourAmount = (adults * priceAdult) + (children * priceChild);
 
-    // Tính tổng dịch vụ bổ sung
     let itemsAmount = 0;
     document.querySelectorAll('.item-row').forEach(row => {
         const qty = parseFloat(row.querySelector('.item-qty')?.value || 0);
@@ -247,7 +311,6 @@ function updateTotals() {
     document.getElementById('total_amount').textContent = (tourAmount + itemsAmount).toLocaleString('vi-VN');
 }
 
-// Thêm dịch vụ bổ sung
 function addItemRow() {
     const container = document.getElementById('items-container');
     const row = document.createElement('div');
@@ -294,3 +357,4 @@ updateTotals();
 
 <!-- Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+

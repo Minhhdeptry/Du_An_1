@@ -40,11 +40,11 @@ class BookingController
     }
 
     /** ------------------------
-     *  Form tạo booking (TỰ ĐỘNG TẠO LỊCH)
+     *  ✅ FIX: Form tạo booking - Lấy tours + adult_price, child_price
      */
     public function createForm(string $act): void
     {
-        // ✅ Lấy danh sách TOUR (không phải schedule nữa)
+        // ✅ Lấy danh sách TOUR với GIÁ
         $tours = $this->getToursList();
 
         if (empty($tours)) {
@@ -60,13 +60,14 @@ class BookingController
     }
 
     /** ------------------------
-     *  Helper: Lấy danh sách tours
+     *  ✅ FIX: Helper - Lấy tours kèm giá adult_price, child_price
      */
     private function getToursList(): array
     {
         try {
             $stmt = $this->bookingModel->getConnection()->prepare("
                 SELECT t.id, t.code, t.title, t.duration_days,
+                       t.adult_price, t.child_price,
                        c.name AS category_name
                 FROM tours t
                 LEFT JOIN tour_category c ON c.id = t.category_id
@@ -89,13 +90,6 @@ class BookingController
         // ✅ Lấy author_id từ session
         $author_id = $_SESSION['user_id'] ?? null;
 
-        // ✅ Validate CSRF token (nếu có)
-        // if (!$this->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-        //     $_SESSION['error'] = "⚠️ Invalid request!";
-        //     header("Location: index.php?act=admin-booking-create");
-        //     exit;
-        // }
-
         $data = $_POST;
         $res = $this->bookingModel->create($data, $author_id);
 
@@ -117,8 +111,9 @@ class BookingController
                 }
             }
 
-            // ✅ Flash message
-            $_SESSION['success'] = "✅ Tạo booking thành công! Mã: " . ($data['booking_code'] ?? 'N/A');
+            // ✅ Flash message với booking_code từ response
+            $booking = $this->bookingModel->find($booking_id);
+            $_SESSION['success'] = "✅ Tạo booking thành công! Mã: " . ($booking['booking_code'] ?? 'N/A');
             header("Location: index.php?act=admin-booking");
             exit;
         }
@@ -198,7 +193,6 @@ class BookingController
         $id = (int) ($_GET['id'] ?? 0);
         $author_id = $_SESSION['user_id'] ?? null;
 
-        // ✅ Xác nhận trước khi hủy (có thể dùng JS confirm)
         $res = $this->bookingModel->cancelBooking($id, $author_id);
 
         if ($res['ok'] ?? false) {

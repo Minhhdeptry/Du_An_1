@@ -3,7 +3,6 @@ class BookingModel
 {
     private $pdo;
 
-    // Trạng thái booking với nhãn hiển thị
     public static $statusLabels = [
         'PENDING' => 'Chờ xác nhận',
         'CONFIRMED' => 'Đã xác nhận',
@@ -18,17 +17,11 @@ class BookingModel
         $this->pdo = connectDB();
     }
 
-    /** ------------------------
-     *  Lấy PDO connection (để Controller dùng)
-     */
     public function getConnection(): PDO
     {
         return $this->pdo;
     }
 
-    /** ------------------------
-     *  Lấy tất cả booking (trừ đã hủy)
-     */
     public function getAll()
     {
         $sql = "SELECT b.*, ts.depart_date, t.title AS tour_name
@@ -42,9 +35,6 @@ class BookingModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** ------------------------
-     *  Tìm kiếm booking
-     */
     public function searchByKeyword($keyword)
     {
         $sql = "SELECT b.*, ts.depart_date, t.title AS tour_name
@@ -59,9 +49,6 @@ class BookingModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** ------------------------
-     *  Lấy chi tiết booking theo ID
-     */
     public function find($id)
     {
         $sql = "SELECT b.*, ts.depart_date, t.title AS tour_name,
@@ -86,17 +73,15 @@ class BookingModel
     }
 
     /** ------------------------
-     *  Tạo booking mới (TỰ ĐỘNG TẠO SCHEDULE)
+     *  ✅ Tạo booking mới
      */
     public function create($data, $author_id = null)
     {
-        // ✅ Validate trước
         $errors = $this->validateData($data);
         if ($errors) {
             return ['ok' => false, 'errors' => $errors];
         }
 
-        // ✅ Validate dữ liệu schedule
         $scheduleErrors = $this->validateScheduleData($data);
         if ($scheduleErrors) {
             return ['ok' => false, 'errors' => $scheduleErrors];
@@ -109,18 +94,34 @@ class BookingModel
         try {
             $this->pdo->beginTransaction();
 
-            // ✅ BƯỚC 1: Tạo schedule custom
-            $schedule_id = $this->createCustomSchedule($data);
+            // ✅ Xử lý tour_id
+            $tour_id = null;
+            
+            if (!empty($data['tour_id'])) {
+                // Mode 1: Chọn tour có sẵn
+                $tour_id = (int) $data['tour_id'];
+            } elseif (!empty($data['custom_tour_name'])) {
+                // Mode 2: Tạo tour mới
+                $tour_id = $this->createOrGetCustomTour($data['custom_tour_name'], $data);
+                if (!$tour_id) {
+                    throw new \Exception("Không thể tạo tour mới");
+                }
+            } else {
+                throw new \Exception("Vui lòng chọn tour hoặc nhập tên tour mới");
+            }
+
+            // Tạo schedule
+            $schedule_id = $this->createCustomSchedule($data, $tour_id);
             if (!$schedule_id) {
                 throw new \Exception("Không thể tạo lịch tour");
             }
 
-            // ✅ BƯỚC 2: Tính tổng tiền
+            // Tính tổng tiền
             $price_adult = (float) ($data['price_adult'] ?? 0);
             $price_children = (float) ($data['price_children'] ?? 0);
             $total_amount = ($adults * $price_adult) + ($children * $price_children);
 
-            // ✅ BƯỚC 3: Tạo booking
+            // Tạo booking
             $stmt = $this->pdo->prepare("
                 INSERT INTO bookings
                 (booking_code, tour_schedule_id, contact_name, contact_phone, contact_email,
@@ -144,14 +145,14 @@ class BookingModel
 
             $booking_id = $this->pdo->lastInsertId();
 
-            // ✅ BƯỚC 4: Ghi log
+            // Ghi log
             $this->pdo->prepare("
                 INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
                 VALUES (?, ?, 'NOTE', ?)
             ")->execute([
                 $booking_id,
                 $author_id,
-                "Booking created by admin with custom schedule"
+                "Booking created with " . (!empty($data['tour_id']) ? "existing tour" : "custom tour: " . $data['custom_tour_name'])
             ]);
 
             $this->pdo->commit();
@@ -167,9 +168,64 @@ class BookingModel
     }
 
     /** ------------------------
-     *  Tạo schedule custom (private helper)
+     *  ✅ Tạo hoặc lấy tour custom
      */
-    private function createCustomSchedule(array $data): ?int
+    private function createOrGetCustomTour(string $tourName, array $data): ?int
+    {
+        $tourName = trim($tourName);
+        $normalizedName = $this->normalizeString($tourName);
+        
+        // Tìm tour tương tự
+        $stmt = $this->pdo->prepare("
+            SELECT id FROM tours 
+            WHERE LOWER(REPLACE(REPLACE(REPLACE(title, ' ', ''), '-', ''), '_', '')) = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$normalizedName]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existing) {
+            return (int) $existing['id'];
+        }
+        
+        // Tạo mới
+        $code = 'CUSTOM-' . date('ymd') . rand(100, 999);
+        $duration = !empty($data['return_date']) && !empty($data['depart_date'])
+            ? (strtotime($data['return_date']) - strtotime($data['depart_date'])) / 86400
+            : 1;
+        
+        $stmt = $this->pdo->prepare("
+            INSERT INTO tours 
+            (code, title, short_desc, duration_days, adult_price, child_price, is_active, is_custom)
+            VALUES (?, ?, ?, ?, ?, ?, 0, 1)
+        ");
+        
+        $stmt->execute([
+            $code,
+            $tourName,
+            "Tour theo yêu cầu khách hàng",
+            (int) $duration,
+            (float) ($data['price_adult'] ?? 0),
+            (float) ($data['price_children'] ?? 0)
+        ]);
+        
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /** ------------------------
+     *  Helper: Chuẩn hóa string
+     */
+    private function normalizeString(string $str): string
+    {
+        $str = mb_strtolower($str, 'UTF-8');
+        $str = preg_replace('/[^a-z0-9]/', '', $str);
+        return $str;
+    }
+
+    /** ------------------------
+     *  ✅ Tạo schedule custom (FIXED - chỉ 1 version)
+     */
+    private function createCustomSchedule(array $data, int $tour_id): ?int
     {
         try {
             $stmt = $this->pdo->prepare("
@@ -179,15 +235,14 @@ class BookingModel
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', 1, ?)
             ");
 
-            // Số ghế mặc định = tổng người đặt (vì là custom)
             $total_people = (int)($data['adults'] ?? 0) + (int)($data['children'] ?? 0);
 
             $stmt->execute([
-                (int) ($data['tour_id'] ?? 0),
+                $tour_id,
                 $data['depart_date'] ?? null,
                 $data['return_date'] ?? null,
-                $total_people, // seats_total
-                $total_people, // seats_available (ban đầu = total)
+                $total_people,
+                $total_people,
                 (float) ($data['price_adult'] ?? 0),
                 (float) ($data['price_children'] ?? 0),
                 'Custom request for: ' . ($data['contact_name'] ?? '')
@@ -202,7 +257,83 @@ class BookingModel
     }
 
     /** ------------------------
-     *  Cập nhật booking (ADMIN CHỈ CẬP NHẬT CUSTOM REQUEST)
+     *  ✅ Mã booking ngắn: BK + YMD + 4 số random
+     */
+    private function generateBookingCode(): string
+    {
+        return 'BK' . date('ymd') . rand(1000, 9999); // VD: BK2412065432
+    }
+
+    /** ------------------------
+     *  ✅ Validate booking data
+     */
+    public function validateData(array $data): array
+    {
+        $errors = [];
+
+        if (empty(trim($data['contact_name'] ?? ''))) {
+            $errors[] = "Tên khách không được để trống.";
+        }
+
+        $adults = (int) ($data['adults'] ?? 0);
+        $children = (int) ($data['children'] ?? 0);
+        if ($adults + $children <= 0) {
+            $errors[] = "Số lượng khách phải lớn hơn 0.";
+        }
+
+        if (!empty($data['contact_email']) && !filter_var($data['contact_email'], FILTER_VALIDATE_EMAIL)) {
+            $errors[] = "Email không hợp lệ.";
+        }
+
+        if (!empty($data['contact_phone']) && !preg_match('/^[0-9\+\-\s()]{7,15}$/', $data['contact_phone'])) {
+            $errors[] = "Số điện thoại không hợp lệ (7-15 ký tự).";
+        }
+
+        return $errors;
+    }
+
+    /** ------------------------
+     *  ✅ Validate schedule data (FIXED - chỉ 1 version)
+     */
+    public function validateScheduleData(array $data): array
+    {
+        $errors = [];
+
+        // Phải có tour_id HOẶC custom_tour_name
+        if (empty($data['tour_id']) && empty(trim($data['custom_tour_name'] ?? ''))) {
+            $errors[] = "Vui lòng chọn tour có sẵn hoặc nhập tên tour mới.";
+        }
+
+        if (empty($data['depart_date'])) {
+            $errors[] = "Ngày khởi hành không được để trống.";
+        } else {
+            $departDate = strtotime($data['depart_date']);
+            if ($departDate < strtotime('today')) {
+                $errors[] = "Ngày khởi hành phải từ hôm nay trở đi.";
+            }
+        }
+
+        if (!empty($data['return_date']) && !empty($data['depart_date'])) {
+            if (strtotime($data['return_date']) < strtotime($data['depart_date'])) {
+                $errors[] = "Ngày về phải sau ngày khởi hành.";
+            }
+        }
+
+        $priceAdult = (float) ($data['price_adult'] ?? 0);
+        if ($priceAdult <= 0) {
+            $errors[] = "Giá người lớn phải lớn hơn 0.";
+        }
+
+        $priceChildren = (float) ($data['price_children'] ?? 0);
+        if ($priceChildren < 0) {
+            $errors[] = "Giá trẻ em không được âm.";
+        }
+
+        return $errors;
+    }
+
+    /** ------------------------
+     *  Cập nhật booking
      */
     public function update($id, $data, $author_id = null)
     {
@@ -211,7 +342,6 @@ class BookingModel
             return ['ok' => false, 'errors' => ['Booking không tồn tại']];
         }
 
-        // ✅ Validate trước
         $errors = $this->validateData($data);
         if ($errors) {
             return ['ok' => false, 'errors' => $errors];
@@ -222,17 +352,14 @@ class BookingModel
         $schedule_id = (int) ($data['tour_schedule_id'] ?? $old['tour_schedule_id']);
         $status = $data['status'] ?? $old['status'];
 
-        // ✅ Chỉ cập nhật custom request
         if (!$this->isCustomRequest($schedule_id)) {
             return ['ok' => false, 'errors' => ['Admin chỉ được cập nhật booking cho tour theo yêu cầu']];
         }
 
-        // ✅ Check capacity (custom request sẽ auto pass)
         if (!$this->checkCapacity($schedule_id, $adults, $children, $id)) {
             return ['ok' => false, 'errors' => ['Không đủ chỗ để cập nhật!']];
         }
 
-        // ✅ Tính total_amount từ schedule
         $total_amount = $this->calculateTotal($schedule_id, $adults, $children);
 
         try {
@@ -257,7 +384,6 @@ class BookingModel
                 $id
             ]);
 
-            // ✅ Ghi log nếu thay đổi status
             if ($old['status'] !== $status) {
                 $this->pdo->prepare("
                     INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
@@ -272,7 +398,6 @@ class BookingModel
 
             $this->pdo->commit();
 
-            // ✅ Update seats nếu không phải custom request
             $this->updateSeats($old['tour_schedule_id']);
             if ($old['tour_schedule_id'] !== $schedule_id) {
                 $this->updateSeats($schedule_id);
@@ -288,9 +413,6 @@ class BookingModel
         }
     }
 
-    /** ------------------------
-     *  Hủy booking
-     */
     public function cancelBooking($id, $author_id = null)
     {
         $b = $this->find($id);
@@ -318,8 +440,6 @@ class BookingModel
             ]);
 
             $this->pdo->commit();
-
-            // ✅ Update seats nếu không phải custom request
             $this->updateSeats($b['tour_schedule_id']);
 
             return ['ok' => true];
@@ -332,9 +452,6 @@ class BookingModel
         }
     }
 
-    /** ------------------------
-     *  Xác nhận booking (PENDING → CONFIRMED)
-     */
     public function confirmBooking($booking_id, $author_id = null)
     {
         $b = $this->find($booking_id);
@@ -363,7 +480,6 @@ class BookingModel
 
             $this->pdo->commit();
 
-            // ✅ Update seats nếu không phải custom request
             if (!$this->isCustomRequest($b['tour_schedule_id'])) {
                 $this->updateSeats($b['tour_schedule_id']);
             }
@@ -378,9 +494,6 @@ class BookingModel
         }
     }
 
-    /** ------------------------
-     *  Lấy lịch sử thay đổi trạng thái
-     */
     public function getStatusHistory($booking_id)
     {
         $sql = "SELECT l.content, l.created_at, u.full_name AS author_name
@@ -393,9 +506,6 @@ class BookingModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** ------------------------
-     *  Tính tổng tiền
-     */
     public function calculateTotal($schedule_id, $adults, $children)
     {
         $stmt = $this->pdo->prepare("SELECT price_adult, price_children FROM tour_schedule WHERE id = ?");
@@ -409,12 +519,8 @@ class BookingModel
         return ($adults * (float)$sc['price_adult']) + ($children * (float)$sc['price_children']);
     }
 
-    /** ------------------------
-     *  Kiểm tra chỗ trống (CUSTOM REQUEST TỰ ĐỘNG PASS)
-     */
     public function checkCapacity($schedule_id, $adults, $children, $booking_id = null)
     {
-        // ✅ Custom request không cần check ghế
         if ($this->isCustomRequest($schedule_id)) {
             return true;
         }
@@ -445,12 +551,8 @@ class BookingModel
         return ($booked + $adults + $children) <= (int) $sc['seats_total'];
     }
 
-    /** ------------------------
-     *  Cập nhật số ghế còn lại (BỎ QUA CUSTOM REQUEST)
-     */
     public function updateSeats($schedule_id)
     {
-        // ✅ Bỏ qua custom request
         if ($this->isCustomRequest($schedule_id)) {
             return;
         }
@@ -472,9 +574,6 @@ class BookingModel
         $stmt->execute([$booked, $schedule_id]);
     }
 
-    /** ------------------------
-     *  Lấy danh sách lịch tour CUSTOM REQUEST (CHỈ CHO ADMIN)
-     */
     public function getSchedules()
     {
         $sql = "SELECT ts.id, ts.depart_date, ts.seats_available, ts.price_adult, ts.price_children,
@@ -489,102 +588,11 @@ class BookingModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** ------------------------
-     *  Kiểm tra lịch tour có phải custom request không
-     */
     public function isCustomRequest($schedule_id)
     {
         $stmt = $this->pdo->prepare("SELECT is_custom_request FROM tour_schedule WHERE id = ?");
         $stmt->execute([$schedule_id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return !empty($row['is_custom_request']);
-    }
-
-    /** ------------------------
-     *  Sinh mã booking tự động (Format: BK + YYMMDDHHmmss = 12 ký tự)
-     */
-    private function generateBookingCode()
-    {
-        // Format: BK + YYMMDDHHmmss (12 ký tự thay vì 17)
-        return 'BK' . date('ymdHis'); // VD: BK241206153045
-        
-        // Hoặc format ngắn hơn: BK + YYMMDDxxxx (10 ký tự)
-        // return 'BK' . date('ymd') . rand(1000, 9999); // VD: BK2412065432
-    }
-
-    /** ------------------------
-     *  Validate dữ liệu booking
-     */
-    public function validateData(array $data): array
-    {
-        $errors = [];
-
-        // ✅ Kiểm tra tên khách
-        if (empty(trim($data['contact_name'] ?? ''))) {
-            $errors[] = "Tên khách không được để trống.";
-        }
-
-        // ✅ Kiểm tra số lượng người
-        $adults = (int) ($data['adults'] ?? 0);
-        $children = (int) ($data['children'] ?? 0);
-        if ($adults + $children <= 0) {
-            $errors[] = "Số lượng khách phải lớn hơn 0.";
-        }
-
-        // ✅ Kiểm tra email (nếu có)
-        if (!empty($data['contact_email']) && !filter_var($data['contact_email'], FILTER_VALIDATE_EMAIL)) {
-            $errors[] = "Email không hợp lệ.";
-        }
-
-        // ✅ Kiểm tra số điện thoại (nếu có)
-        if (!empty($data['contact_phone']) && !preg_match('/^[0-9\+\-\s()]{7,15}$/', $data['contact_phone'])) {
-            $errors[] = "Số điện thoại không hợp lệ (7-15 ký tự).";
-        }
-
-        return $errors;
-    }
-
-    /** ------------------------
-     *  Validate dữ liệu schedule (cho booking tự tạo lịch)
-     */
-    public function validateScheduleData(array $data): array
-    {
-        $errors = [];
-
-        // ✅ Kiểm tra tour_id
-        if (empty($data['tour_id'])) {
-            $errors[] = "Vui lòng chọn tour.";
-        }
-
-        // ✅ Kiểm tra ngày đi
-        if (empty($data['depart_date'])) {
-            $errors[] = "Ngày khởi hành không được để trống.";
-        } else {
-            $departDate = strtotime($data['depart_date']);
-            if ($departDate < strtotime('today')) {
-                $errors[] = "Ngày khởi hành phải từ hôm nay trở đi.";
-            }
-        }
-
-        // ✅ Kiểm tra ngày về (nếu có)
-        if (!empty($data['return_date']) && !empty($data['depart_date'])) {
-            if (strtotime($data['return_date']) < strtotime($data['depart_date'])) {
-                $errors[] = "Ngày về phải sau ngày khởi hành.";
-            }
-        }
-
-        // ✅ Kiểm tra giá
-        $priceAdult = (float) ($data['price_adult'] ?? 0);
-        $priceChildren = (float) ($data['price_children'] ?? 0);
-        
-        if ($priceAdult <= 0) {
-            $errors[] = "Giá người lớn phải lớn hơn 0.";
-        }
-
-        if ($priceChildren < 0) {
-            $errors[] = "Giá trẻ em không được âm.";
-        }
-
-        return $errors;
     }
 }
