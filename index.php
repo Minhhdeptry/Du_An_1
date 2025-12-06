@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
   integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 <?php
-// session_start();
+session_start();
 
 
 require_once './commons/env.php'; // Khai báo biến môi trường
@@ -34,80 +34,82 @@ $currentAct = $act;
 
 match ($act) {
 
-// ================= AUTH ===================
-    'sign-in'           => (new AuthController())->SignIn(),
-    'sign-up'           => (new AuthController())->SignUp(),
+  // ================= AUTH ===================
+  'sign-in' => (new AuthController())->SignIn(),
+  'sign-up' => (new AuthController())->SignUp(),
 
 
-// ================= TOUR ADMIN ===================
-    'admin-tour'        => (new TourController())->index($currentAct),
-    'admin-tour-create'    => (new TourController())->create($currentAct),
-    'admin-tour-store'  => (new TourController())->store(),
-    'admin-tour-edit'   => (new TourController())->edit($currentAct),
-    'admin-tour-update' => (new TourController())->update(),
-    'admin-tour-delete' => (new TourController())->delete(),
+  // ================= TOUR ADMIN ===================
+  'admin-tour' => (new TourController())->index($currentAct),
+  'admin-tour-create' => (new TourController())->create($currentAct),
+  'admin-tour-store' => (new TourController())->store(),
+  'admin-tour-edit' => (new TourController())->edit($currentAct),
+  'admin-tour-update' => (new TourController())->update(),
+  'admin-tour-delete' => (new TourController())->delete(),
 
-// ================= BOOKING ADMIN ===================
-    'admin-booking'     => (new BookingController())->index($currentAct),
-    'admin-booking-edit'     => (new BookingController())->edit($currentAct),
-    'admin-booking-update'     => (new BookingController())->update(),
-    'admin-booking-cancel'     => (new BookingController())->cancel(),
-    // 'admin-booking-create'     => (new BookingController())->create($currentAct),
-    // 'admin-booking-store'     => (new BookingController())->store(),
-    // 'admin-booking-delete'     => (new BookingController())->delete(),
+  // ================= BOOKING ADMIN ===================
+  'admin-booking' => (new BookingController())->index($currentAct),
+  'admin-booking-edit' => (new BookingController())->edit($currentAct),
+  'admin-booking-update' => (new BookingController())->update(),
+  'admin-booking-cancel' => (new BookingController())->cancel(),
+  'admin-booking-create' => (new BookingController())->createForm($currentAct),
+  'admin-booking-store' => (new BookingController())->store(),
+  // Xóa item dùng deleteItem()
+  'admin-booking-item-delete' => (new BookingController())->deleteItem(),
 
-// ================= CATEGORY ADMIN ===================
-    'admin-category'    => (new CategoryController())->index($currentAct),
-    'admin-category-create'    => (new CategoryController())->create($currentAct),
-    'admin-category-store'    => (new CategoryController())->store(),
-    'admin-category-edit'    => (new CategoryController())->edit($currentAct),
-    'admin-category-update'    => (new CategoryController())->update(),
-    'admin-category-delete'    => (new CategoryController())->delete(),
 
-// ================= SCHEDULE ADMIN ===================
-    'admin-schedule'    => (new ScheduleController())->index($currentAct),
-    'admin-schedule-create'    => (new ScheduleController())->create($currentAct),
-    'admin-schedule-store'    => (new ScheduleController())->store(),
-    'admin-schedule-edit'    => (new ScheduleController())->edit($currentAct),
-    'admin-schedule-update'    => (new ScheduleController())->update(),
-    'admin-schedule-delete'    => (new ScheduleController())->delete(),
+  // ================= CATEGORY ADMIN ===================
+  'admin-category' => (new CategoryController())->index($currentAct),
+  'admin-category-create' => (new CategoryController())->create($currentAct),
+  'admin-category-store' => (new CategoryController())->store(),
+  'admin-category-edit' => (new CategoryController())->edit($currentAct),
+  'admin-category-update' => (new CategoryController())->update(),
+  'admin-category-delete' => (new CategoryController())->delete(),
 
-// ================= STAFF ADMIN ===================
-    'admin-staff'    => (new StaffController())->index($currentAct),
-    'admin-staff-create'    => (new StaffController())->create($currentAct),
-    'admin-staff-edit'    => (new StaffController())->edit($currentAct),
-    'admin-staff-store'    => (new StaffController())->store(),
-    'admin-staff-update'    => (new StaffController())->update(),
-    'admin-staff-delete'    => (new StaffController())->delete(),
+  // ================= SCHEDULE ADMIN ===================
+  'admin-schedule' => (new ScheduleController())->index($currentAct),
+  'admin-schedule-create' => (new ScheduleController())->create($currentAct),
+  'admin-schedule-store' => (new ScheduleController())->store(),
+  'admin-schedule-edit' => (new ScheduleController())->edit($currentAct),
+  'admin-schedule-update' => (new ScheduleController())->update(),
+  'admin-schedule-delete' => (new ScheduleController())->delete(),
 
-// ================= USER ADMIN ===================
-    'admin-user'    => (new UserController())->index($currentAct),
-    'admin-user-create'    => (new UserController())->create($currentAct),
-    'admin-user-edit'    => (new UserController())->edit($currentAct),
-    'admin-user-update'    => (new UserController())->update(),
-    'admin-user-store'    => (new UserController())->store(),
-    'admin-user-delete'    => (new UserController())->delete(),
-    'admin-user-history'    => (new UserController())->history($currentAct),
+  // ================= STAFF ADMIN ===================
+  'admin-staff' => (new StaffController())->index($currentAct),
+  'admin-staff-create' => (new StaffController())->create($currentAct),
+  'admin-staff-edit' => (new StaffController())->edit($currentAct),
+  'admin-staff-store' => (new StaffController())->store(),
+  'admin-staff-update' => (new StaffController())->update(),
+  'admin-staff-delete' => (new StaffController())->delete(),
 
-// ================= PAYMENT ADMIN ===================
-    'admin-payment'               => (new PaymentController())->index($currentAct),
-    'admin-payment-history'               => (new PaymentController())->history($currentAct),
-    'admin-payment-confirm'       => (new PaymentController())->confirm(),
-    'admin-payment-cancel'       => (new PaymentController())->cancel(),
+  // ================= USER ADMIN ===================
+  'admin-user' => (new UserController())->index($currentAct),
+  'admin-user-create' => (new UserController())->create($currentAct),
+  'admin-user-edit' => (new UserController())->edit($currentAct),
+  'admin-user-update' => (new UserController())->update(),
+  'admin-user-store' => (new UserController())->store(),
+  'admin-user-delete' => (new UserController())->delete(),
+  'admin-user-history' => (new UserController())->history($currentAct),
+
+  // ================= PAYMENT ADMIN ===================
+  'admin-payment' => (new PaymentController())->index($currentAct),
+  'admin-payment-history' => (new PaymentController())->history($currentAct),
+  'admin-payment-confirm' => (new PaymentController())->confirm(),
+  'admin-payment-cancel' => (new PaymentController())->cancel(),
+
+
+  // ================= REPORT ===================
+  'admin-report' => (new ReportController())->index($currentAct),
+
+
+
 
 
   // ================= DASHBOARD ===================
-    'admin-report'                 => (new ReportController())->index($currentAct),
+  'dashboard' => (new DashboardController())->index($currentAct),
 
 
-
-  
-
-// ================= DASHBOARD ===================
-  'dashboard'                 => (new DashboardController())->index($currentAct),
-
-
-// ================= 404 ===================
+  // ================= 404 ===================
   default => include './views/errorPage.php',
 };
 
