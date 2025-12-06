@@ -1,8 +1,8 @@
 <?php
 // controllers/StaffController.php
 
-require_once __DIR__ . "/../models/StaffModel.php";
-require_once __DIR__ . "/../models/UserModel.php";
+require_once "./models/admin/StaffModel.php";
+require_once "./models/admin/UserModel.php";
 
 class StaffController
 {
@@ -12,7 +12,7 @@ class StaffController
     public function __construct()
     {
         // models tự tạo PDO trong __construct của chính nó (theo style project)
-        require_once __DIR__ . "/../commons/function.php";
+        require_once "./commons/function.php";
         $this->staffModel = new StaffModel();
         $this->userModel = new UserModel();
     }

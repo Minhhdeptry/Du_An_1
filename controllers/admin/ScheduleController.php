@@ -3,10 +3,11 @@ class ScheduleController
 {
     private $model;
     private $tourModel;
+
     public function __construct()
     {
-        require_once "./models/TourScheduleModel.php";
-        require_once "./models/TourModel.php";
+        require_once "./models/admin/TourScheduleModel.php";
+        require_once "./models/admin/TourModel.php";
 
         $this->model = new TourScheduleModel();
         $this->tourModel = new TourModel();
@@ -26,7 +27,6 @@ class ScheduleController
         include "./views/layout/adminLayout.php";
     }
 
-
     public function create($act)
     {
         $pageTitle = "Thêm lịch khởi hành";
@@ -39,7 +39,7 @@ class ScheduleController
 
     public function store()
     {
-        $this->model->store($_POST);
+        $this->model->store($_POST); // store đã tự set seats_available
         header("Location: index.php?act=admin-schedule");
         exit;
     }
@@ -60,8 +60,7 @@ class ScheduleController
     public function update()
     {
         $id = $_POST["id"];
-        $this->model->update($id, $_POST);
-
+        $this->model->update($id, $_POST); // updateSeats tự gọi trong model
         header("Location: index.php?act=admin-schedule");
         exit;
     }
@@ -69,9 +68,15 @@ class ScheduleController
     public function delete()
     {
         $id = $_GET["id"];
-        $this->model->delete($id);
 
+        if ($this->model->hasBooking($id)) {
+            echo "Không thể xóa lịch này vì còn booking.";
+            exit;
+        }
+
+        $this->model->delete($id);
         header("Location: index.php?act=admin-schedule");
         exit;
     }
+
 }

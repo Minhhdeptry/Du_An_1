@@ -5,7 +5,7 @@ class UserModel
 
     public function __construct()
     {
-        require_once __DIR__ . "/../commons/function.php";
+        require_once "./commons/function.php";
         $this->pdo = connectDB();
     }
 

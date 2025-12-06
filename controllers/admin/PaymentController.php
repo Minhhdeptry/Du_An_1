@@ -5,7 +5,7 @@ class PaymentController
 
     public function __construct()
     {
-        require_once "./models/PaymentModel.php";
+        require_once "./models/admin/PaymentModel.php";
         $this->model = new PaymentModel();
     }
 
@@ -31,18 +31,13 @@ class PaymentController
     public function history($act)
     {
         $booking_id = $_GET['booking_id'] ?? null;
-        if ($booking_id) {
-            $payments = $this->model->getPaymentsByBooking($booking_id);
-        } else {
-            $payments = $this->model->getAllPayments();
-        }
-
+        $booking = $booking_id ? $this->model->getBookingInfo($booking_id) : null;
+        $payments = $booking_id ? $this->model->getPaymentsByBooking($booking_id) : $this->model->getAllPayments();
         $currentAct = $act;
-        $booking = $this->model->getBookingInfo($booking_id);
-        $payments = $this->model->getPaymentsByBooking($booking_id);
 
         $view = "./views/admin/Payment/history.php";
         include "./views/layout/adminLayout.php";
+
     }
 
     // ============ XÁC NHẬN =============

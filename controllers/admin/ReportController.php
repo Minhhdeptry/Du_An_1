@@ -5,7 +5,7 @@ class ReportController
 
     public function __construct()
     {
-        require_once __DIR__ . "/../models/ReportModel.php";
+        require_once "./models/admin/ReportModel.php";
         $this->model = new ReportModel();
     }
 

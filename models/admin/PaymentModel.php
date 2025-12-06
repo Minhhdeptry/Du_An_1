@@ -34,6 +34,24 @@ class PaymentModel
         return $stm->fetchAll();
     }
 
+    public function getPaymentsByBookingIds(array $bookingIds)
+    {
+        if (!$bookingIds)
+            return [];
+        $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+        $sql = "SELECT * FROM payments WHERE booking_id IN ($placeholders) ORDER BY id ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($bookingIds);
+        $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [];
+        foreach ($payments as $p) {
+            $result[$p['booking_id']][] = $p;
+        }
+        return $result;
+    }
+
+
     // Lấy thông tin booking
     public function getBookingInfo($booking_id)
     {

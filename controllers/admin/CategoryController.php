@@ -5,7 +5,7 @@ class CategoryController
 
     public function __construct()
     {
-        require_once "./models/CategoryModel.php";
+        require_once "./models/admin/CategoryModel.php";
         $this->model = new CategoryModel();
     }
 

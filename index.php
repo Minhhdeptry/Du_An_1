@@ -14,19 +14,19 @@ require_once './commons/env.php'; // Khai báo biến môi trường
 require_once './commons/function.php'; // Hàm hỗ trợ
 
 // Controllers
-require_once './controllers/DashboardController.php';
-require_once './controllers/TourController.php';
-require_once './controllers/BookingController.php';
-require_once './controllers/CategoryController.php';
-require_once './controllers/ScheduleController.php';
-require_once './controllers/StaffController.php';
-require_once './controllers/UserController.php';
-require_once './controllers/PaymentController.php';
-require_once './controllers/ReportController.php';
+require_once './controllers/admin/DashboardController.php';
+require_once './controllers/admin/TourController.php';
+require_once './controllers/admin/BookingController.php';
+require_once './controllers/admin/CategoryController.php';
+require_once './controllers/admin/ScheduleController.php';
+require_once './controllers/admin/StaffController.php';
+require_once './controllers/admin/UserController.php';
+require_once './controllers/admin/PaymentController.php';
+require_once './controllers/admin/ReportController.php';
 
 
 // Auth
-require_once './controllers/AuthController.php';
+require_once './controllers/admin/AuthController.php';
 
 // Route
 $act = ($_GET['act'] ?? 'dashboard');
@@ -50,11 +50,11 @@ match ($act) {
 // ================= BOOKING ADMIN ===================
     'admin-booking'     => (new BookingController())->index($currentAct),
     'admin-booking-edit'     => (new BookingController())->edit($currentAct),
-    'admin-booking-create'     => (new BookingController())->create($currentAct),
     'admin-booking-update'     => (new BookingController())->update(),
-    'admin-booking-delete'     => (new BookingController())->delete(),
     'admin-booking-cancel'     => (new BookingController())->cancel(),
+    // 'admin-booking-create'     => (new BookingController())->create($currentAct),
     // 'admin-booking-store'     => (new BookingController())->store(),
+    // 'admin-booking-delete'     => (new BookingController())->delete(),
 
 // ================= CATEGORY ADMIN ===================
     'admin-category'    => (new CategoryController())->index($currentAct),

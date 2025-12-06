@@ -11,7 +11,7 @@ class TourController
 
         $this->pdo = connectDB();
 
-        require_once "./models/TourModel.php";
+        require_once "./models/admin/TourModel.php";
         $this->model = new TourModel();
     }
 

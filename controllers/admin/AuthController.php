@@ -1,5 +1,5 @@
 <?php
-require './models/AuthModel.php';
+require './models/admin/AuthModel.php';
 class AuthController
 {
     protected $model;
