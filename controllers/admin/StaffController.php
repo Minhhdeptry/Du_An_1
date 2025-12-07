@@ -36,14 +36,7 @@ class StaffController
         $pageTitle = "Thêm Hướng dẫn viên";
         $currentAct = $act;
 
-        $users = $this->userModel->getUsersByRole('HDV');
-
-        if (empty($users)) {
-            $_SESSION['error'] = "⚠️ Chưa có user HDV nào! Vui lòng tạo user với role='HDV' trước.";
-            header("Location: index.php?act=admin-staff");
-            exit;
-        }
-
+        // ✅ BỎ check users vì giờ tự động tạo
         $view = "./views/admin/Staff/create.php";
         include "./views/layout/adminLayout.php";
     }
@@ -57,17 +50,29 @@ class StaffController
 
         $data = $_POST;
 
-        // Validate
-        if (empty($data['user_id'])) {
-            error_log("Error: user_id is empty");
-            $_SESSION['error'] = "❌ Vui lòng chọn tài khoản user!";
+        // ✅ VALIDATE dữ liệu cơ bản
+        if (empty($data['full_name'])) {
+            $_SESSION['error'] = "❌ Họ tên không được để trống!";
+            $_SESSION['old_data'] = $data;
+            header("Location: index.php?act=admin-staff-create");
+            exit;
+        }
+
+        if (empty($data['email'])) {
+            $_SESSION['error'] = "❌ Email không được để trống!";
+            $_SESSION['old_data'] = $data;
+            header("Location: index.php?act=admin-staff-create");
+            exit;
+        }
+
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            $_SESSION['error'] = "❌ Email không hợp lệ!";
             $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff-create");
             exit;
         }
 
         if (empty($data['phone'])) {
-            error_log("Error: phone is empty");
             $_SESSION['error'] = "❌ Số điện thoại không được để trống!";
             $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff-create");
@@ -75,104 +80,132 @@ class StaffController
         }
 
         if (!preg_match('/^[0-9]{10,11}$/', $data['phone'])) {
-            error_log("Error: phone format invalid");
             $_SESSION['error'] = "❌ Số điện thoại không hợp lệ! Phải có 10-11 chữ số.";
             $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff-create");
             exit;
         }
 
+        // ✅ Check phone đã tồn tại
         if ($this->staffModel->findByPhone($data['phone'])) {
-            error_log("Error: phone already exists");
             $_SESSION['error'] = "❌ Số điện thoại đã được sử dụng!";
             $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff-create");
             exit;
         }
 
-        if ($this->staffModel->isUserAlreadyStaff($data['user_id'])) {
-            error_log("Error: user already staff");
-            $_SESSION['error'] = "❌ User này đã là nhân viên rồi!";
+        // ✅ TỰ ĐỘNG TẠO USER HDV
+        try {
+            // ✅ FIX: Dùng biến local thay vì $this->pdo
+            $pdo = connectDB();
+            $pdo->beginTransaction();
+
+            // 1. Tạo username từ email
+            $username = explode('@', $data['email'])[0];
+
+            // Check username trùng
+            $checkUser = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+            $checkUser->execute([$username]);
+            if ($checkUser->fetch()) {
+                // Nếu trùng, thêm số random
+                $username = $username . rand(100, 999);
+            }
+
+            // Check email trùng
+            $checkEmail = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $checkEmail->execute([$data['email']]);
+            if ($checkEmail->fetch()) {
+                throw new Exception("Email đã được sử dụng!");
+            }
+
+            // 2. Tạo password mặc định
+            $defaultPassword = '123456';
+            $passwordHash = password_hash($defaultPassword, PASSWORD_BCRYPT);
+
+            // 3. Insert user
+            $insertUser = $pdo->prepare("
+                INSERT INTO users (username, password_hash, full_name, email, phone, role, is_active)
+                VALUES (?, ?, ?, ?, ?, 'HDV', 1)
+            ");
+
+            $insertUser->execute([
+                $username,
+                $passwordHash,
+                $data['full_name'],
+                $data['email'],
+                $data['phone']
+            ]);
+
+            $user_id = $pdo->lastInsertId();
+
+            if (!$user_id) {
+                throw new Exception("Không thể tạo tài khoản user!");
+            }
+
+            // 4. Set user_id vào data
+            $data['user_id'] = $user_id;
+
+            // ✅ Upload ảnh
+            $data['profile_image'] = null;
+
+            if (!empty($_FILES['profile_image']['name'])) {
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+                $maxSize = 2 * 1024 * 1024;
+
+                if (!in_array($_FILES['profile_image']['type'], $allowedTypes)) {
+                    throw new Exception("Chỉ chấp nhận file ảnh JPG, PNG, WEBP!");
+                }
+
+                if ($_FILES['profile_image']['size'] > $maxSize) {
+                    throw new Exception("Kích thước ảnh tối đa 2MB!");
+                }
+
+                $uploadedPath = uploadFile($_FILES['profile_image'], 'assets/images/staff/');
+
+                if (!$uploadedPath) {
+                    throw new Exception("Upload ảnh thất bại!");
+                }
+
+                $data['profile_image'] = $uploadedPath;
+            }
+
+            // 5. Lưu staff
+            $result = $this->staffModel->store($data);
+
+            if (!$result) {
+                throw new Exception("Không thể tạo hồ sơ nhân viên!");
+            }
+
+            // ✅ Commit transaction
+            $pdo->commit();
+
+            error_log("✅ Store success! User ID: $user_id");
+            $_SESSION['success'] = "✅ Thêm hướng dẫn viên thành công!<br>
+                                 📧 Email: {$data['email']}<br>
+                                 👤 Username: <strong>$username</strong><br>
+                                 🔑 Password: <strong>$defaultPassword</strong><br>
+                                 <small class='text-warning'>(⚠️ Vui lòng đổi mật khẩu sau lần đăng nhập đầu tiên)</small>";
+            header("Location: index.php?act=admin-staff");
+            exit;
+
+        } catch (Exception $e) {
+            // Rollback nếu lỗi
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            error_log("Store Exception: " . $e->getMessage());
+
+            // Xóa ảnh nếu đã upload
+            if (!empty($data['profile_image'])) {
+                deleteFile($data['profile_image']);
+            }
+
+            $_SESSION['error'] = "❌ Lỗi: " . $e->getMessage();
             $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff-create");
             exit;
         }
-
-        // Upload ảnh
-        $data['profile_image'] = null;
-
-        if (!empty($_FILES['profile_image']['name'])) {
-            error_log("Processing image upload...");
-
-            $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-            $maxSize = 2 * 1024 * 1024;
-
-            if (!in_array($_FILES['profile_image']['type'], $allowedTypes)) {
-                error_log("Error: Invalid file type");
-                $_SESSION['error'] = "❌ Chỉ chấp nhận file ảnh JPG, PNG, WEBP!";
-                $_SESSION['old_data'] = $data;
-                header("Location: index.php?act=admin-staff-create");
-                exit;
-            }
-
-            if ($_FILES['profile_image']['size'] > $maxSize) {
-                error_log("Error: File too large");
-                $_SESSION['error'] = "❌ Kích thước ảnh tối đa 2MB!";
-                $_SESSION['old_data'] = $data;
-                header("Location: index.php?act=admin-staff-create");
-                exit;
-            }
-
-            if (!defined('PATH_ROOT')) {
-                error_log("CRITICAL: PATH_ROOT not defined!");
-                $_SESSION['error'] = "❌ Lỗi hệ thống: PATH_ROOT chưa được định nghĩa!";
-                $_SESSION['old_data'] = $data;
-                header("Location: index.php?act=admin-staff-create");
-                exit;
-            }
-
-            $uploadedPath = uploadFile($_FILES['profile_image'], 'assets/images/staff/');
-
-            if (!$uploadedPath) {
-                error_log("Error: Upload failed!");
-                $_SESSION['error'] = "❌ Upload ảnh thất bại!";
-                $_SESSION['old_data'] = $data;
-                header("Location: index.php?act=admin-staff-create");
-                exit;
-            }
-
-            $data['profile_image'] = $uploadedPath;
-            error_log("Image uploaded: " . $uploadedPath);
-        }
-
-        // Lưu database
-        try {
-            $result = $this->staffModel->store($data);
-
-            if ($result) {
-                error_log("✅ Store success!");
-                $_SESSION['success'] = "✅ Thêm hướng dẫn viên thành công!";
-                header("Location: index.php?act=admin-staff");
-            } else {
-                error_log("❌ Store failed!");
-                if (!empty($data['profile_image'])) {
-                    deleteFile($data['profile_image']);
-                }
-                $_SESSION['error'] = "❌ Thêm thất bại!";
-                $_SESSION['old_data'] = $data;
-                header("Location: index.php?act=admin-staff-create");
-            }
-        } catch (Exception $e) {
-            error_log("Store Exception: " . $e->getMessage());
-            if (!empty($data['profile_image'])) {
-                deleteFile($data['profile_image']);
-            }
-            $_SESSION['error'] = "❌ Lỗi: " . $e->getMessage();
-            $_SESSION['old_data'] = $data;
-            header("Location: index.php?act=admin-staff-create");
-        }
-
-        exit;
     }
 
     // ============ FORM SỬA ============
@@ -194,7 +227,8 @@ class StaffController
             exit;
         }
 
-        $users = $this->userModel->getUsersByRole('HDV');
+        // ✅ BỎ: Không cần lấy users nữa vì chỉ update info, không đổi user
+        // $users = $this->userModel->getUsersByRole('HDV');
 
         $pageTitle = "Sửa Hướng dẫn viên: " . $staff['full_name'];
         $currentAct = $act;
@@ -205,20 +239,21 @@ class StaffController
     // ============ CẬP NHẬT ============
     public function update()
     {
-        $data = $_POST;
-        $id = $data['id'] ?? null;
-
-        error_log("=== UPDATE DEBUG ===");
+        error_log("=== UPDATE DEBUG START ===");
         error_log("POST: " . print_r($_POST, true));
         error_log("FILES: " . print_r($_FILES, true));
 
+        $data = $_POST;
+        $id = $data['id'] ?? null;
+
+        // ✅ Check ID
         if (!$id) {
             $_SESSION['error'] = "❌ Không tìm thấy ID nhân viên!";
-            $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff");
             exit;
         }
 
+        // ✅ Lấy thông tin staff cũ
         $oldStaff = $this->staffModel->find($id);
         if (!$oldStaff) {
             $_SESSION['error'] = "❌ Nhân viên không tồn tại!";
@@ -226,14 +261,10 @@ class StaffController
             exit;
         }
 
-        // Validate
-        if (empty($data['user_id'])) {
-            $_SESSION['error'] = "❌ Vui lòng chọn tài khoản user!";
-            $_SESSION['old_data'] = $data;
-            header("Location: index.php?act=admin-staff-edit&id={$id}");
-            exit;
-        }
+        // ✅ Giữ nguyên user_id (không cho đổi)
+        $data['user_id'] = $oldStaff['user_id'];
 
+        // ✅ Validate phone
         if (empty($data['phone'])) {
             $_SESSION['error'] = "❌ Số điện thoại không được để trống!";
             $_SESSION['old_data'] = $data;
@@ -241,22 +272,25 @@ class StaffController
             exit;
         }
 
+        // ✅ Validate phone format
         if (!preg_match('/^[0-9]{10,11}$/', $data['phone'])) {
-            $_SESSION['error'] = "❌ Số điện thoại không hợp lệ!";
+            $_SESSION['error'] = "❌ Số điện thoại không hợp lệ! Phải có 10-11 chữ số.";
             $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff-edit&id={$id}");
             exit;
         }
 
+        // ✅ Check phone trùng với staff khác
         $existingPhone = $this->staffModel->findByPhone($data['phone'], $id);
         if ($existingPhone) {
-            $_SESSION['error'] = "❌ Số điện thoại đã được sử dụng!";
+            error_log("Error: Phone already used by another staff");
+            $_SESSION['error'] = "❌ Số điện thoại đã được sử dụng bởi nhân viên khác!";
             $_SESSION['old_data'] = $data;
             header("Location: index.php?act=admin-staff-edit&id={$id}");
             exit;
         }
 
-        // Upload ảnh mới
+        // ✅ Upload ảnh mới
         if (!empty($_FILES['profile_image']['name'])) {
             $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
             $maxSize = 2 * 1024 * 1024;
@@ -280,11 +314,9 @@ class StaffController
             if ($newImage) {
                 $data['profile_image'] = $newImage;
 
+                // Xóa ảnh cũ
                 if (!empty($oldStaff['profile_image']) && $oldStaff['profile_image'] !== $newImage) {
-                    $oldImagePath = PATH_ROOT . $oldStaff['profile_image'];
-                    if (file_exists($oldImagePath)) {
-                        unlink($oldImagePath);
-                    }
+                    deleteFile($oldStaff['profile_image']);
                 }
             } else {
                 $_SESSION['error'] = "❌ Upload ảnh thất bại!";
@@ -298,15 +330,17 @@ class StaffController
 
         $data['id'] = $id;
 
-        // Update database
+        // ✅ Update database
         try {
             $result = $this->staffModel->update($data);
 
             if ($result) {
-                $_SESSION['success'] = "✅ Cập nhật thành công!";
+                error_log("✅ Update success!");
+                $_SESSION['success'] = "✅ Cập nhật hướng dẫn viên thành công!";
                 header("Location: index.php?act=admin-staff");
             } else {
-                $_SESSION['error'] = "❌ Cập nhật thất bại!";
+                error_log("❌ Update failed!");
+                $_SESSION['error'] = "❌ Cập nhật thất bại! Vui lòng thử lại.";
                 $_SESSION['old_data'] = $data;
                 header("Location: index.php?act=admin-staff-edit&id={$id}");
             }
@@ -340,9 +374,9 @@ class StaffController
         }
 
         if ($this->staffModel->delete($id)) {
-            $_SESSION['success'] = "✅ Đã xóa: " . $staff['full_name'];
+            $_SESSION['success'] = "✅ Đã xóa hướng dẫn viên: " . $staff['full_name'];
         } else {
-            $_SESSION['error'] = "❌ Không thể xóa!";
+            $_SESSION['error'] = "❌ Không thể xóa! HDV này đang có tour hoặc có ràng buộc dữ liệu.";
         }
 
         header("Location: index.php?act=admin-staff");

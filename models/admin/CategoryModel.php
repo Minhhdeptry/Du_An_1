@@ -18,15 +18,22 @@ class CategoryModel
     public function getAll($keyword = '')
     {
         $sql = "SELECT tc.*, COUNT(t.id) AS tour_count
-                FROM tour_category tc
-                LEFT JOIN tours t ON t.category_id = tc.id
-                WHERE tc.name LIKE :keyword OR tc.code LIKE :keyword
-                GROUP BY tc.id
-                ORDER BY tc.id DESC";
+            FROM tour_category tc
+            LEFT JOIN tours t ON t.category_id = tc.id
+            WHERE tc.name LIKE :kw1 OR tc.code LIKE :kw2
+            GROUP BY tc.id
+            ORDER BY tc.id DESC";
+
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['keyword' => "%$keyword%"]);
+        $stmt->execute([
+            ':kw1' => "%$keyword%",
+            ':kw2' => "%$keyword%"
+        ]);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+
 
     public function find($id)
     {

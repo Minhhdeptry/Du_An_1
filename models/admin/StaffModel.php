@@ -36,9 +36,10 @@ class StaffModel
 
         // Tìm kiếm keyword
         if ($keyword !== '') {
+            // ✅ FIX: Bỏ COLLATE utf8mb4_unicode_ci
             $sql .= " AND (
-                COALESCE(u.full_name, '') LIKE :kw COLLATE utf8mb4_unicode_ci
-                OR COALESCE(u.email, '') LIKE :kw COLLATE utf8mb4_unicode_ci
+                COALESCE(u.full_name, '') LIKE :kw
+                OR COALESCE(u.email, '') LIKE :kw
                 OR COALESCE(s.phone, '') LIKE :kw
                 OR COALESCE(s.id_number, '') LIKE :kw
             )";
@@ -102,24 +103,24 @@ class StaffModel
         try {
             $result = $stmt->execute($params);
             $lastId = $this->pdo->lastInsertId();
-            
+
             error_log("Execute result: " . ($result ? 'TRUE' : 'FALSE'));
             error_log("Last insert ID: " . $lastId);
-            
+
             if ($result && $lastId > 0) {
                 error_log("✅ Insert success!");
                 return true;
             }
-            
+
             error_log("❌ Insert failed - no ID returned");
             return false;
-            
+
         } catch (PDOException $e) {
             error_log("❌ StaffModel::store() PDOException:");
             error_log("Message: " . $e->getMessage());
             error_log("Code: " . $e->getCode());
             error_log("SQL State: " . ($e->errorInfo[0] ?? 'N/A'));
-            
+
             $this->lastError = $e->errorInfo;
             return false;
         }
@@ -177,7 +178,7 @@ class StaffModel
         try {
             $result = $stmt->execute($params);
             $rowCount = $stmt->rowCount();
-            
+
             error_log("Execute result: " . ($result ? 'TRUE' : 'FALSE'));
             error_log("Rows affected: " . $rowCount);
 
@@ -190,7 +191,7 @@ class StaffModel
                 }
                 return true;
             }
-            
+
             return false;
 
         } catch (PDOException $e) {
@@ -210,13 +211,13 @@ class StaffModel
         try {
             // ✅ Bảng tour_schedule không có cột guide/staff
             // → Bỏ qua kiểm tra, hoặc thêm sau khi bảng được cập nhật
-            
+
             // TODO: Nếu sau này thêm cột guide_id vào tour_schedule, uncomment đoạn này:
             /*
             $checkStmt = $this->pdo->prepare("SELECT COUNT(*) as count FROM tour_schedule WHERE guide_id = ?");
             $checkStmt->execute([$id]);
             $result = $checkStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($result['count'] > 0) {
                 error_log("Cannot delete - staff has tours");
                 return false;
@@ -232,7 +233,7 @@ class StaffModel
             // Xóa staff
             $stmt = $this->pdo->prepare("DELETE FROM staffs WHERE id=?");
             $result = $stmt->execute([$id]);
-            
+
             error_log("Delete result: " . ($result ? 'TRUE' : 'FALSE'));
             return $result;
 
