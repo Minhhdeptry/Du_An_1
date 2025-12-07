@@ -40,13 +40,23 @@ class PaymentController
 
     }
 
-    // ============ XÁC NHẬN =============
+    // ============ XÁC NHẬN ============
+
     public function confirm()
     {
         $id = $_GET['id'] ?? null;
-        if ($id)
+        if ($id) {
+            // Xác nhận payment
             $this->model->confirmPayment($id);
 
+            // ✅ THÊM: Lấy booking_id và cập nhật trạng thái
+            $payment = $this->model->getPaymentById($id);
+            if ($payment && !empty($payment['booking_id'])) {
+                require_once "./models/admin/BookingModel.php";
+                $bookingModel = new BookingModel();
+                $bookingModel->updateBookingStatusByPayment($payment['booking_id']);
+            }
+        }
         header("Location: " . $_SERVER['HTTP_REFERER']);
     }
 

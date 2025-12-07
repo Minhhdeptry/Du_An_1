@@ -51,6 +51,14 @@ class PaymentModel
         return $result;
     }
 
+    // models/admin/PaymentModel.php
+
+    public function getPaymentById($id)
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM payments WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
     // Lấy thông tin booking
     public function getBookingInfo($booking_id)

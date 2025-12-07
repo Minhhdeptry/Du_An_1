@@ -607,4 +607,63 @@ class BookingModel
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return !empty($row['is_custom_request']);
     }
+
+    // models/admin/BookingModel.php
+
+    /**
+     * Lấy trạng thái thanh toán của booking
+     * @return string 'PENDING'|'DEPOSIT_PAID'|'FULL_PAID'
+     */
+    public function getPaymentStatus($booking_id)
+    {
+        try {
+            $stmt = $this->pdo->prepare("
+            SELECT 
+                SUM(CASE WHEN status = 'SUCCESS' THEN amount ELSE 0 END) as total_paid,
+                MAX(CASE WHEN type = 'FULL' AND status = 'SUCCESS' THEN 1 ELSE 0 END) as has_full_payment
+            FROM payments
+            WHERE booking_id = ?
+        ");
+            $stmt->execute([$booking_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $total_paid = (float) ($result['total_paid'] ?? 0);
+            $has_full = (bool) $result['has_full_payment'];
+
+            if ($total_paid == 0) {
+                return 'PENDING'; // Chưa thanh toán gì
+            } elseif ($has_full) {
+                return 'FULL_PAID'; // Đã thanh toán đầy đủ
+            } else {
+                return 'DEPOSIT_PAID'; // Đã cọc (có payment nhưng chưa full)
+            }
+
+        } catch (\Throwable $e) {
+            error_log("GetPaymentStatus Error: " . $e->getMessage());
+            return 'PENDING';
+        }
+    }
+
+    /**
+     * Cập nhật trạng thái booking dựa trên payment
+     */
+    public function updateBookingStatusByPayment($booking_id)
+    {
+        $paymentStatus = $this->getPaymentStatus($booking_id);
+
+        $newStatus = match ($paymentStatus) {
+            'FULL_PAID' => 'PAID',
+            'DEPOSIT_PAID' => 'CONFIRMED', // Hoặc giữ nguyên status hiện tại
+            default => null
+        };
+
+        if ($newStatus) {
+            $stmt = $this->pdo->prepare("
+            UPDATE bookings 
+            SET status = ? 
+            WHERE id = ? AND status NOT IN ('COMPLETED', 'CANCELED')
+        ");
+            $stmt->execute([$newStatus, $booking_id]);
+        }
+    }
 }

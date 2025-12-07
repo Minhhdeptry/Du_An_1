@@ -16,12 +16,19 @@ class BookingController
     /** ------------------------
      *  Danh sách booking
      */
+    // controllers/admin/BookingController.php
+
     public function index(string $act): void
     {
         $keyword = trim($_GET['keyword'] ?? '');
         $bookings = $keyword
             ? $this->bookingModel->searchByKeyword($keyword)
             : $this->bookingModel->getAll();
+
+        // ✅ THÊM: Lấy trạng thái thanh toán cho mỗi booking
+        foreach ($bookings as &$booking) {
+            $booking['payment_status'] = $this->bookingModel->getPaymentStatus($booking['id']);
+        }
 
         // Lấy trạng thái từ Model
         $statusText = BookingModel::$statusLabels;
@@ -277,6 +284,9 @@ class BookingController
             header("Location: index.php?act=admin-booking");
             exit;
         }
+
+        // ✅ THÊM: Lấy trạng thái thanh toán
+        $booking['payment_status'] = $this->bookingModel->getPaymentStatus($id);
 
         $items = $this->itemModel->getItemsByBooking($id);
         $statusHistory = $this->bookingModel->getStatusHistory($id);
