@@ -23,6 +23,7 @@ require_once './controllers/admin/StaffController.php';
 require_once './controllers/admin/UserController.php';
 require_once './controllers/admin/PaymentController.php';
 require_once './controllers/admin/ReportController.php';
+require_once './controllers/admin/ItineraryController.php';
 
 
 // Auth
@@ -101,6 +102,15 @@ match ($act) {
 
   // ================= REPORT ===================
   'admin-report' => (new ReportController())->index($currentAct),
+
+  // ================= ITINERARY (Lịch trình Tour) ===================
+  'admin-itinerary-list' => (new ItineraryController())->selectTour($currentAct), 
+  'admin-itinerary' => (new ItineraryController())->index($currentAct),
+  'admin-itinerary-create' => (new ItineraryController())->create($currentAct),
+  'admin-itinerary-store' => (new ItineraryController())->store(),
+  'admin-itinerary-edit' => (new ItineraryController())->edit($currentAct),
+  'admin-itinerary-update' => (new ItineraryController())->update(),
+  'admin-itinerary-delete' => (new ItineraryController())->delete(),
 
 
 

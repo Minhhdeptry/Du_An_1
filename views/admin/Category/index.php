@@ -97,6 +97,7 @@
                             <td><?= $key + 1 ?></td>
                             <td><?= $c['code'] ?></td>
                             <td class="text-start"><?= $c['name'] ?></td>
+
                             <td class="text-start"><?= $c['note'] ?></td>
                             <td><?= $c['tour_count'] ?></td>
                             <td>

@@ -15,7 +15,6 @@ class CategoryModel
         $this->pdo = $pdo;
     }
 
-    // Lấy tất cả danh mục, có tìm kiếm, đếm tour
     public function getAll($keyword = '')
     {
         $sql = "SELECT tc.*, COUNT(t.id) AS tour_count
@@ -53,6 +52,7 @@ class CategoryModel
 
     public function store($data)
     {
+        // ✅ BỎ tour_type khỏi SQL
         $sql = "INSERT INTO tour_category (code, name, note, is_active)
                 VALUES (?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
@@ -66,6 +66,7 @@ class CategoryModel
 
     public function update($id, $data)
     {
+        // ✅ BỎ tour_type khỏi SQL
         $sql = "UPDATE tour_category SET code=?, name=?, note=?, is_active=? WHERE id=?";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([
