@@ -96,7 +96,7 @@ class BookingModel
 
             // ✅ Xử lý tour_id
             $tour_id = null;
-            
+
             if (!empty($data['tour_id'])) {
                 // Mode 1: Chọn tour có sẵn
                 $tour_id = (int) $data['tour_id'];
@@ -150,10 +150,10 @@ class BookingModel
                 INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
                 VALUES (?, ?, 'NOTE', ?)
             ")->execute([
-                $booking_id,
-                $author_id,
-                "Booking created with " . (!empty($data['tour_id']) ? "existing tour" : "custom tour: " . $data['custom_tour_name'])
-            ]);
+                        $booking_id,
+                        $author_id,
+                        "Booking created with " . (!empty($data['tour_id']) ? "existing tour" : "custom tour: " . $data['custom_tour_name'])
+                    ]);
 
             $this->pdo->commit();
 
@@ -174,41 +174,53 @@ class BookingModel
     {
         $tourName = trim($tourName);
         $normalizedName = $this->normalizeString($tourName);
-        
+
         // Tìm tour tương tự
         $stmt = $this->pdo->prepare("
-            SELECT id FROM tours 
-            WHERE LOWER(REPLACE(REPLACE(REPLACE(title, ' ', ''), '-', ''), '_', '')) = ?
-            LIMIT 1
-        ");
+        SELECT id FROM tours 
+        WHERE LOWER(REPLACE(REPLACE(REPLACE(title, ' ', ''), '-', ''), '_', '')) = ?
+        LIMIT 1
+    ");
         $stmt->execute([$normalizedName]);
         $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if ($existing) {
             return (int) $existing['id'];
         }
-        
+
+        // ✅ MỚI: Lấy ID của category "Tour theo yêu cầu"
+        $categoryStmt = $this->pdo->prepare("
+        SELECT id FROM tour_category 
+        WHERE code = 'REQ' OR name LIKE '%theo yêu cầu%'
+        LIMIT 1
+        ");
+        $categoryStmt->execute();
+        $category = $categoryStmt->fetch(PDO::FETCH_ASSOC);
+        $customCategoryId = $category['id'] ?? null;
+
         // Tạo mới
         $code = 'CUSTOM-' . date('ymd') . rand(100, 999);
         $duration = !empty($data['return_date']) && !empty($data['depart_date'])
             ? (strtotime($data['return_date']) - strtotime($data['depart_date'])) / 86400
             : 1;
-        
+
+        // ✅ MỚI: Thêm category_id vào câu INSERT
         $stmt = $this->pdo->prepare("
-            INSERT INTO tours 
-            (code, title, short_desc, duration_days, adult_price, child_price, is_active, is_custom)
-            VALUES (?, ?, ?, ?, ?, ?, 0, 1)
-        ");
-        
+        INSERT INTO tours 
+        (code, title, short_desc, duration_days, adult_price, child_price, category_id, is_active, is_custom)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1)
+    ");
+
         $stmt->execute([
             $code,
             $tourName,
             "Tour theo yêu cầu khách hàng",
             (int) $duration,
             (float) ($data['price_adult'] ?? 0),
-            (float) ($data['price_children'] ?? 0)
+            (float) ($data['price_children'] ?? 0),
+            $customCategoryId  // ✅ MỚI: Gán category
         ]);
-        
+
         return (int) $this->pdo->lastInsertId();
     }
 
@@ -235,7 +247,7 @@ class BookingModel
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', 1, ?)
             ");
 
-            $total_people = (int)($data['adults'] ?? 0) + (int)($data['children'] ?? 0);
+            $total_people = (int) ($data['adults'] ?? 0) + (int) ($data['children'] ?? 0);
 
             $stmt->execute([
                 $tour_id,
@@ -371,29 +383,29 @@ class BookingModel
                     adults = ?, children = ?, total_people = ?, total_amount = ?, status = ?, special_request = ?
                 WHERE id = ?
             ")->execute([
-                $schedule_id,
-                $data['contact_name'] ?? '',
-                $data['contact_phone'] ?? '',
-                $data['contact_email'] ?? '',
-                $adults,
-                $children,
-                $adults + $children,
-                $total_amount,
-                $status,
-                $data['special_request'] ?? '',
-                $id
-            ]);
+                        $schedule_id,
+                        $data['contact_name'] ?? '',
+                        $data['contact_phone'] ?? '',
+                        $data['contact_email'] ?? '',
+                        $adults,
+                        $children,
+                        $adults + $children,
+                        $total_amount,
+                        $status,
+                        $data['special_request'] ?? '',
+                        $id
+                    ]);
 
             if ($old['status'] !== $status) {
                 $this->pdo->prepare("
                     INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
                     VALUES (?, ?, 'NOTE', ?)
                 ")->execute([
-                    $id,
-                    $author_id,
-                    "Status changed from " . (self::$statusLabels[$old['status']] ?? $old['status']) .
-                    " to " . (self::$statusLabels[$status] ?? $status)
-                ]);
+                            $id,
+                            $author_id,
+                            "Status changed from " . (self::$statusLabels[$old['status']] ?? $old['status']) .
+                            " to " . (self::$statusLabels[$status] ?? $status)
+                        ]);
             }
 
             $this->pdo->commit();
@@ -433,11 +445,11 @@ class BookingModel
                 INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
                 VALUES (?, ?, 'NOTE', ?)
             ")->execute([
-                $id,
-                $author_id,
-                "Status changed from " . (self::$statusLabels[$b['status']] ?? $b['status']) .
-                " to " . self::$statusLabels['CANCELED']
-            ]);
+                        $id,
+                        $author_id,
+                        "Status changed from " . (self::$statusLabels[$b['status']] ?? $b['status']) .
+                        " to " . self::$statusLabels['CANCELED']
+                    ]);
 
             $this->pdo->commit();
             $this->updateSeats($b['tour_schedule_id']);
@@ -472,11 +484,11 @@ class BookingModel
                 INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
                 VALUES (?, ?, 'NOTE', ?)
             ")->execute([
-                $booking_id,
-                $author_id,
-                "Status changed from " . self::$statusLabels['PENDING'] . 
-                " to " . self::$statusLabels['CONFIRMED']
-            ]);
+                        $booking_id,
+                        $author_id,
+                        "Status changed from " . self::$statusLabels['PENDING'] .
+                        " to " . self::$statusLabels['CONFIRMED']
+                    ]);
 
             $this->pdo->commit();
 
@@ -511,12 +523,12 @@ class BookingModel
         $stmt = $this->pdo->prepare("SELECT price_adult, price_children FROM tour_schedule WHERE id = ?");
         $stmt->execute([$schedule_id]);
         $sc = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$sc) {
             return 0;
         }
 
-        return ($adults * (float)$sc['price_adult']) + ($children * (float)$sc['price_children']);
+        return ($adults * (float) $sc['price_adult']) + ($children * (float) $sc['price_children']);
     }
 
     public function checkCapacity($schedule_id, $adults, $children, $booking_id = null)
@@ -528,7 +540,7 @@ class BookingModel
         $stmt = $this->pdo->prepare("SELECT seats_total FROM tour_schedule WHERE id = ?");
         $stmt->execute([$schedule_id]);
         $sc = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$sc) {
             return false;
         }

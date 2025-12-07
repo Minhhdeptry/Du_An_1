@@ -137,11 +137,19 @@
                                 </td>
 
                                 <td>
+                                    <a href="index.php?act=admin-itinerary&tour_id=<?= $t['id'] ?>"
+                                        class="btn btn-sm btn-info me-1 mb-1" title="Quản lý lịch trình theo ngày">
+                                        <i class="bi bi-calendar-week"></i> Lịch trình
+                                    </a>
                                     <a href="index.php?act=admin-tour-edit&id=<?= $t['id'] ?>"
-                                        class="btn btn-sm btn-warning me-1">Sửa</a>
+                                        class="btn btn-sm btn-warning me-1 mb-1">
+                                        <i class="bi bi-pencil"></i> Sửa
+                                    </a>
                                     <a href="index.php?act=admin-tour-delete&id=<?= $t['id'] ?>"
                                         onclick="return confirm('Bạn có chắc muốn xóa tour này?')"
-                                        class="btn btn-sm btn-danger">Xóa</a>
+                                        class="btn btn-sm btn-danger mb-1">
+                                        <i class="bi bi-trash"></i> Xóa
+                                    </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

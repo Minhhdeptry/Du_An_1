@@ -32,7 +32,8 @@ if (!isset($category) || !$category) {
 
                 <div class="mb-3">
                     <label for="note" class="form-label">Ghi chú</label>
-                    <textarea class="form-control" id="note" name="note" rows="3"><?= htmlspecialchars($category['note']) ?></textarea>
+                    <textarea class="form-control" id="note" name="note"
+                        rows="3"><?= htmlspecialchars($category['note']) ?></textarea>
                 </div>
 
                 <div class="mb-3">
