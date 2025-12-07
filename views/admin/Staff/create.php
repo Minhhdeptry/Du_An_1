@@ -20,6 +20,63 @@
             </select>
         </div>
 
+        <!-- Ngày sinh -->
+        <div class="form-group">
+            <label>Ngày sinh</label>
+            <input type="date" name="date_of_birth" class="form-control">
+        </div>
+
+        <!-- Ảnh đại diện -->
+        <div class="form-group">
+            <label>Ảnh đại diện</label>
+            <input type="file" name="profile_image" class="form-control">
+        </div>
+
+        <!-- Chứng chỉ -->
+        <div class="form-group">
+            <label>Chứng chỉ chuyên môn</label>
+            <textarea name="certifications" class="form-control"
+                placeholder="VD: Hướng dẫn viên du lịch quốc gia"></textarea>
+        </div>
+
+        <!-- Ngôn ngữ -->
+        <div class="form-group">
+            <label>Ngôn ngữ sử dụng</label>
+            <input type="text" name="languages" class="form-control" placeholder="VD: Tiếng Anh, Tiếng Pháp">
+        </div>
+
+        <!-- Kinh nghiệm -->
+        <div class="form-group">
+            <label>Số năm kinh nghiệm</label>
+            <input type="number" name="experience_years" class="form-control" min="0">
+        </div>
+
+        <!-- Phân loại -->
+        <div class="form-group">
+            <label>Phân loại HDV</label>
+            <select name="staff_type" class="form-control">
+                <option value="DOMESTIC">Nội địa</option>
+                <option value="INTERNATIONAL">Quốc tế</option>
+                <option value="SPECIALIZED">Chuyên tuyến</option>
+                <option value="GROUP_TOUR">Chuyên khách đoàn</option>
+            </select>
+        </div>
+
+        <!-- Đánh giá -->
+        <div class="form-group">
+            <label>Đánh giá năng lực (0-5)</label>
+            <input type="number" name="rating" class="form-control" min="0" max="5" step="0.1">
+        </div>
+
+        <!-- Sức khoẻ -->
+        <div class="form-group">
+            <label>Tình trạng sức khoẻ</label>
+            <select name="health_status" class="form-control">
+                <option value="good">Tốt</option>
+                <option value="fair">Trung bình</option>
+                <option value="poor">Yếu</option>
+            </select>
+        </div>
 
         <div class="form-group">
             <label>SĐT</label>
