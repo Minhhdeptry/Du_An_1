@@ -3,106 +3,369 @@ class PaymentModel
 {
     private $pdo;
 
+    public static $statusLabels = [
+        'PENDING' => 'Chờ thanh toán',
+        'SUCCESS' => 'Thành công',
+        'FAILED' => 'Thất bại',
+        'REFUNDED' => 'Đã hoàn tiền',
+    ];
+
+    public static $typeLabels = [
+        'DEPOSIT' => 'Đặt cọc',
+        'FULL' => 'Thanh toán đủ',
+        'REMAINING' => 'Thanh toán còn lại',
+    ];
+
+    public static $methodLabels = [
+        'CASH' => 'Tiền mặt',
+        'BANK_TRANSFER' => 'Chuyển khoản',
+        'CREDIT_CARD' => 'Thẻ tín dụng',
+        'MOMO' => 'MoMo',
+        'VNPAY' => 'VNPay',
+        'ZALOPAY' => 'ZaloPay',
+    ];
+
     public function __construct()
     {
         require_once "./commons/function.php";
         $this->pdo = connectDB();
     }
 
-    // TRANG 1: lấy tất cả thanh toán (kèm booking + user)
-    public function getAllPayments()
+    // ✅ THÊM METHOD NÀY (thiếu trong code cũ)
+    /** ========================
+     *  📋 LẤY TẤT CẢ PAYMENTS
+     *  ======================== */
+    public function getAll()
     {
-        $sql = "SELECT p.*, b.booking_code AS booking_code, u.full_name AS customer_name
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT p.*, 
+                       b.booking_code, 
+                       b.contact_name,
+                       b.total_amount as booking_total
                 FROM payments p
                 LEFT JOIN bookings b ON p.booking_id = b.id
-                LEFT JOIN users u ON b.user_id = u.id
-                ORDER BY p.id DESC";
-        return $this->pdo->query($sql)->fetchAll();
-    }
-
-    // TRANG 2: lịch sử theo booking
-    public function getPaymentsByBooking($booking_id)
-    {
-        $sql = "SELECT p.*, b.booking_code AS booking_code, u.full_name AS customer_name
-                FROM payments p
-                LEFT JOIN bookings b ON p.booking_id = b.id
-                LEFT JOIN users u ON b.user_id = u.id
-                WHERE p.booking_id = :booking_id
-                ORDER BY p.id DESC";
-        $stm = $this->pdo->prepare($sql);
-        $stm->execute(['booking_id' => $booking_id]);
-        return $stm->fetchAll();
-    }
-
-    public function getPaymentsByBookingIds(array $bookingIds)
-    {
-        if (!$bookingIds)
+                ORDER BY p.created_at DESC
+            ");
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            error_log("GetAllPayments Error: " . $e->getMessage());
             return [];
-        $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
-        $sql = "SELECT * FROM payments WHERE booking_id IN ($placeholders) ORDER BY id ASC";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($bookingIds);
-        $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $result = [];
-        foreach ($payments as $p) {
-            $result[$p['booking_id']][] = $p;
         }
-        return $result;
     }
 
-    // models/admin/PaymentModel.php
-
-    public function getPaymentById($id)
+    /** ========================
+     *  🔥 TỰ ĐỘNG TẠO PAYMENT KHI TẠO BOOKING
+     *  ======================== */
+    public function createInitialPayment($booking_id, $total_amount)
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM payments WHERE id = ?");
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $payment_code = $this->generatePaymentCode();
+
+            $stmt = $this->pdo->prepare("
+                INSERT INTO payments 
+                (payment_code, booking_id, amount, type, method, status, created_at)
+                VALUES (?, ?, ?, 'FULL', 'BANK_TRANSFER', 'PENDING', NOW())
+            ");
+
+            $stmt->execute([$payment_code, $booking_id, $total_amount]);
+            return $this->pdo->lastInsertId();
+
+        } catch (\Throwable $e) {
+            error_log("CreateInitialPayment Error: " . $e->getMessage());
+            return null;
+        }
     }
 
-    // Lấy thông tin booking
-    public function getBookingInfo($booking_id)
+    /** ========================
+     *  💰 TẠO PAYMENT THỦ CÔNG (từ Admin)
+     *  ======================== */
+    public function create($data)
     {
-        $sql = "SELECT b.*, u.full_name AS user_name, u.email AS customer_email
-                FROM bookings b
-                LEFT JOIN users u ON b.user_id = u.id
-                WHERE b.id = :id LIMIT 1";
-        $stm = $this->pdo->prepare($sql);
-        $stm->execute(['id' => $booking_id]);
-        return $stm->fetch();
+        $errors = $this->validateData($data);
+        if ($errors) {
+            return ['ok' => false, 'errors' => $errors];
+        }
+
+        try {
+            $payment_code = $this->generatePaymentCode();
+            $booking_id = (int) $data['booking_id'];
+            $amount = (float) $data['amount'];
+            $type = $data['type'] ?? 'FULL';
+            $method = $data['method'] ?? 'CASH';
+            $status = $data['status'] ?? 'SUCCESS';
+            $paid_at = !empty($data['paid_at']) ? $data['paid_at'] : date('Y-m-d H:i:s');
+            $note = $data['note'] ?? '';
+
+            $stmt = $this->pdo->prepare("
+                INSERT INTO payments 
+                (payment_code, booking_id, amount, type, method, status, paid_at, note, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+
+            $stmt->execute([
+                $payment_code,
+                $booking_id,
+                $amount,
+                $type,
+                $method,
+                $status,
+                $paid_at,
+                $note
+            ]);
+
+            $payment_id = $this->pdo->lastInsertId();
+
+            // ✅ Cập nhật trạng thái booking dựa trên payment
+            $this->updateBookingStatus($booking_id);
+
+            return ['ok' => true, 'payment_id' => $payment_id];
+
+        } catch (\Throwable $e) {
+            error_log("CreatePayment Error: " . $e->getMessage());
+            return ['ok' => false, 'errors' => [$e->getMessage()]];
+        }
     }
 
-    public function confirmPayment($id)
+    /** ========================
+     *  📝 LẤY DANH SÁCH PAYMENTS CỦA BOOKING
+     *  ======================== */
+    public function getByBooking($booking_id)
     {
-        $sql = "UPDATE payments SET status='SUCCESS' WHERE id=:id";
-        $stm = $this->pdo->prepare($sql);
-        return $stm->execute(['id' => $id]);
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT * FROM payments 
+                WHERE booking_id = ? 
+                ORDER BY created_at DESC
+            ");
+            $stmt->execute([$booking_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            error_log("GetByBooking Error: " . $e->getMessage());
+            return [];
+        }
     }
 
-    public function addPayment($data)
+    /** ========================
+     *  📊 TÍNH TỔNG TIỀN ĐÃ THANH TOÁN
+     *  ======================== */
+    public function getTotalPaid($booking_id)
     {
-        $sql = "INSERT INTO payments (booking_id, amount, method, transaction_code, paid_at, status, type)
-            VALUES (:booking_id, :amount, :method, :transaction_code, :paid_at, :status, :type)";
-
-        $stmt = $this->pdo->prepare($sql);
-
-        return $stmt->execute([
-            'booking_id' => $data['booking_id'],
-            'amount' => $data['amount'],
-            'method' => $data['method'],
-            'transaction_code' => $data['transaction_code'],
-            'paid_at' => $data['paid_at'],
-            'status' => 'PENDING',               // mặc định
-            'type' => $data['type'] ?? 'FULL'    // <<<<<< THÊM Ở ĐÂY
-        ]);
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT SUM(amount) as total
+                FROM payments
+                WHERE booking_id = ? AND status = 'SUCCESS'
+            ");
+            $stmt->execute([$booking_id]);
+            return (float) ($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+        } catch (\Throwable $e) {
+            error_log("GetTotalPaid Error: " . $e->getMessage());
+            return 0;
+        }
     }
 
-    public function cancelPayment($id)
+    /** ========================
+     *  🔍 KIỂM TRA TRẠNG THÁI THANH TOÁN
+     *  ======================== */
+    public function getPaymentStatus($booking_id)
     {
-        $sql = "UPDATE payments SET status = 'REFUNDED' WHERE id = :id";
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute(['id' => $id]);
+        try {
+            $stmt = $this->pdo->prepare("SELECT total_amount FROM bookings WHERE id = ?");
+            $stmt->execute([$booking_id]);
+            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+            $total_booking = (float) ($booking['total_amount'] ?? 0);
+
+            if ($total_booking <= 0) {
+                return 'PENDING';
+            }
+
+            $stmt = $this->pdo->prepare("
+                SELECT SUM(amount) as total_paid
+                FROM payments
+                WHERE booking_id = ? AND status = 'SUCCESS'
+            ");
+            $stmt->execute([$booking_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $total_paid = (float) ($result['total_paid'] ?? 0);
+
+            if ($total_paid == 0) {
+                return 'PENDING';
+            } elseif ($total_paid >= $total_booking) {
+                return 'FULL_PAID';
+            } else {
+                return 'DEPOSIT_PAID';
+            }
+
+        } catch (\Throwable $e) {
+            error_log("GetPaymentStatus Error: " . $e->getMessage());
+            return 'PENDING';
+        }
     }
 
+    /** ========================
+     *  🔄 CẬP NHẬT TRẠNG THÁI BOOKING
+     *  ======================== */
+    private function updateBookingStatus($booking_id)
+    {
+        $paymentStatus = $this->getPaymentStatus($booking_id);
+
+        $newStatus = match ($paymentStatus) {
+            'FULL_PAID' => 'PAID',
+            'DEPOSIT_PAID' => 'CONFIRMED',
+            default => null
+        };
+
+        if ($newStatus) {
+            $stmt = $this->pdo->prepare("
+                UPDATE bookings 
+                SET status = ? 
+                WHERE id = ? AND status NOT IN ('COMPLETED', 'CANCELED')
+            ");
+            $stmt->execute([$newStatus, $booking_id]);
+        }
+    }
+
+    /** ========================
+     *  🗑️ XÓA PAYMENT
+     *  ======================== */
+    public function delete($payment_id)
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT booking_id FROM payments WHERE id = ?");
+            $stmt->execute([$payment_id]);
+            $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$payment) {
+                return ['ok' => false, 'errors' => ['Payment không tồn tại']];
+            }
+
+            $booking_id = $payment['booking_id'];
+
+            $stmt = $this->pdo->prepare("DELETE FROM payments WHERE id = ?");
+            $stmt->execute([$payment_id]);
+
+            $this->updateBookingStatus($booking_id);
+
+            return ['ok' => true];
+
+        } catch (\Throwable $e) {
+            error_log("DeletePayment Error: " . $e->getMessage());
+            return ['ok' => false, 'errors' => [$e->getMessage()]];
+        }
+    }
+
+    /** ========================
+     *  ✏️ CẬP NHẬT PAYMENT
+     *  ======================== */
+    public function update($payment_id, $data)
+    {
+        $errors = $this->validateData($data);
+        if ($errors) {
+            return ['ok' => false, 'errors' => $errors];
+        }
+
+        try {
+            $stmt = $this->pdo->prepare("
+                UPDATE payments SET
+                    amount = ?,
+                    type = ?,
+                    method = ?,
+                    status = ?,
+                    paid_at = ?,
+                    note = ?
+                WHERE id = ?
+            ");
+
+            $stmt->execute([
+                (float) $data['amount'],
+                $data['type'] ?? 'FULL',
+                $data['method'] ?? 'CASH',
+                $data['status'] ?? 'SUCCESS',
+                $data['paid_at'] ?? date('Y-m-d H:i:s'),
+                $data['note'] ?? '',
+                $payment_id
+            ]);
+
+            $stmt = $this->pdo->prepare("SELECT booking_id FROM payments WHERE id = ?");
+            $stmt->execute([$payment_id]);
+            $booking_id = $stmt->fetch(PDO::FETCH_ASSOC)['booking_id'] ?? null;
+
+            if ($booking_id) {
+                $this->updateBookingStatus($booking_id);
+            }
+
+            return ['ok' => true];
+
+        } catch (\Throwable $e) {
+            error_log("UpdatePayment Error: " . $e->getMessage());
+            return ['ok' => false, 'errors' => [$e->getMessage()]];
+        }
+    }
+
+    /** ========================
+     *  🔍 TÌM PAYMENT THEO ID
+     *  ======================== */
+    public function find($payment_id)
+    {
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT p.*, 
+                       b.booking_code, 
+                       b.contact_name 
+                FROM payments p
+                LEFT JOIN bookings b ON p.booking_id = b.id
+                WHERE p.id = ? 
+                LIMIT 1
+            ");
+            $stmt->execute([$payment_id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            error_log("FindPayment Error: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /** ========================
+     *  🎲 TẠO MÃ PAYMENT
+     *  ======================== */
+    private function generatePaymentCode(): string
+    {
+        return 'PAY' . date('ymdHis') . rand(100, 999);
+    }
+
+    /** ========================
+     *  ✅ VALIDATE DỮ LIỆU
+     *  ======================== */
+    private function validateData(array $data): array
+    {
+        $errors = [];
+
+        if (empty($data['booking_id'])) {
+            $errors[] = "Booking ID không được để trống.";
+        }
+
+        $amount = (float) ($data['amount'] ?? 0);
+        if ($amount <= 0) {
+            $errors[] = "Số tiền phải lớn hơn 0.";
+        }
+
+        $validTypes = ['DEPOSIT', 'FULL', 'REMAINING'];
+        if (!empty($data['type']) && !in_array($data['type'], $validTypes)) {
+            $errors[] = "Loại thanh toán không hợp lệ.";
+        }
+
+        $validMethods = ['CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'MOMO', 'VNPAY', 'ZALOPAY'];
+        if (!empty($data['method']) && !in_array($data['method'], $validMethods)) {
+            $errors[] = "Phương thức thanh toán không hợp lệ.";
+        }
+
+        $validStatuses = ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'];
+        if (!empty($data['status']) && !in_array($data['status'], $validStatuses)) {
+            $errors[] = "Trạng thái thanh toán không hợp lệ.";
+        }
+
+        return $errors;
+    }
 }
-?>

@@ -30,7 +30,7 @@
             <tr class="text-center">
                 <td><?= $p['id'] ?></td>
                 <td>#<?= $p['booking_id'] ?></td>
-                <td><?= $p['customer_name'] ?></td>
+                <td><?= $p['contact_name'] ?></td>
                 <td><?= number_format($p['amount']) ?>đ</td>
                 <td><span class="badge bg-info text-dark"><?= $p['type'] ?? '-' ?></span></td>
                 <td><?= $p['method'] ?></td>
@@ -45,7 +45,7 @@
                         <span class="badge bg-secondary">♻️ Hoàn / Hủy</span>
                     <?php endif; ?>
                 </td>
-                <td><?= date('d/m/Y H:i', strtotime($p['paid_at'])) ?></td>
+                <td><?= !empty($p['paid_at']) ? date('d/m/Y H:i', strtotime($p['paid_at'])) : '-' ?></td>
                 <td class="d-flex justify-content-center gap-1 flex-wrap">
                     <!-- Xem lịch sử -->
                     <a href="index.php?act=admin-payment-history&booking_id=<?= $p['booking_id'] ?>"

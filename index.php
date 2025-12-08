@@ -60,6 +60,7 @@ match ($act) {
   'admin-booking-create' => (new BookingController())->createForm($currentAct),
   'admin-booking-store' => (new BookingController())->store(),
   'admin-booking-confirm' => (new BookingController())->confirm(),
+  'admin-booking-detail' => (new BookingController())->detail($currentAct),
   // Xóa item dùng deleteItem()
   'admin-booking-item-delete' => (new BookingController())->deleteItem(),
 
@@ -79,6 +80,7 @@ match ($act) {
     'admin-staff-assign-form' => (new StaffScheduleController())->assignForm($currentAct),
     'admin-staff-assign-store' => (new StaffScheduleController())->assignStore(),
     'admin-staff-remove-assignment' => (new StaffScheduleController())->removeAssignment(),
+    'admin-staff-remove-guide' => (new StaffScheduleController())->removeGuide(),
     
   // Hiệu suất HDV
     'admin-staff-performance' => (new StaffScheduleController())->performance($currentAct),
