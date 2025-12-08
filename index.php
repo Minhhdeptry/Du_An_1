@@ -86,25 +86,6 @@ match ($act) {
   // API check availability
     'admin-staff-check-availability' => (new StaffScheduleController())->checkAvailability(),
     
-  // ================= CHỨNG CHỈ HDV ===================
-    
-  // Danh sách chứng chỉ
-    'admin-staff-cert' => (new StaffCertificateController())->index($currentAct),
-    
-  // Thêm chứng chỉ
-    'admin-staff-cert-create' => (new StaffCertificateController())->create($currentAct),
-    'admin-staff-cert-store' => (new StaffCertificateController())->store(),
-    
-  // Sửa chứng chỉ
-    'admin-staff-cert-edit' => (new StaffCertificateController())->edit($currentAct),
-    'admin-staff-cert-update' => (new StaffCertificateController())->update(),
-    
-  // Xóa chứng chỉ
-    'admin-staff-cert-delete' => (new StaffCertificateController())->delete(),
-    
-  // Chứng chỉ sắp hết hạn
-    'admin-staff-cert-expiring' => (new StaffCertificateController())->expiring($currentAct),
-    
   // ================= ĐÁNH GIÁ HDV ===================
     
   // Danh sách đánh giá

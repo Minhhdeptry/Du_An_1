@@ -35,15 +35,10 @@ if (!empty($oldData)) {
 
         <div class="row">
             <div class="col-md-6 form-group">
-                <label>Tài khoản (User) <span class="text-danger">*</span></label>
-                <select name="user_id" class="form-control" required>
-                    <option value="">-- Chọn user --</option>
-                    <?php foreach ($users as $u): ?>
-                        <option value="<?= $u['id'] ?>" <?= isset($staff) && $staff['user_id'] == $u['id'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($u['full_name']) ?> (<?= htmlspecialchars($u['email']) ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <label>Họ và tên <span class="text-danger">*</span></label>
+                <input type="text" name="full_name" class="form-control" required
+                       placeholder="VD: Nguyễn Văn A"
+                       value="<?= htmlspecialchars($staff['full_name']) ?>">
             </div>
 
             <div class="col-md-6 form-group">

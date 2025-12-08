@@ -313,11 +313,6 @@
                                             <i class="bi bi-graph-up"></i>
                                         </a>
 
-                                        <a href="index.php?act=admin-staff-cert&staff_id=<?= $s['id'] ?>"
-                                            class="btn btn-warning" title="Chứng chỉ">
-                                            <i class="bi bi-award"></i>
-                                        </a>
-
                                         <a href="index.php?act=admin-staff-edit&id=<?= $s['id'] ?>" class="btn btn-secondary"
                                             title="Sửa">
                                             <i class="bi bi-pencil"></i>

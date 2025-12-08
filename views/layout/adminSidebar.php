@@ -39,12 +39,6 @@ $currentAct = $currentAct ?? '';
         <span>Lịch làm việc HDV</span>
     </a>
 
-    <a href="?act=admin-staff-cert-expiring"
-        class="menu-item <?= ($currentAct == 'admin-staff-cert-expiring' ? 'active' : '') ?>">
-        <i class="fas fa-certificate menu-icon"></i>
-        <span>Chứng chỉ sắp hết hạn</span>
-    </a>
-
     <a href="?act=admin-user"
         class="menu-item <?= (in_array($currentAct, ['admin-user', 'admin-user-create', 'admin-user-edit']) ? 'active' : '') ?>">
         <i class="fas fa-users menu-icon"></i>
