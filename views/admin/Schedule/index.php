@@ -81,6 +81,11 @@
                                     class="btn btn-sm btn-warning">Sửa</a>
                                 <a href="index.php?act=admin-schedule-delete&id=<?= $s['id'] ?>"
                                     onclick="return confirm('Xóa lịch này?')" class="btn btn-sm btn-danger">Xóa</a>
+
+                                <a href="index.php?act=admin-staff-assign-form&schedule_id=<?= $s['id'] ?>"
+                                    class="btn btn-sm btn-info" title="Phân công HDV">
+                                    <i class="bi bi-person-plus"></i> Phân công
+                                </a>
                             </td>
 
                         </tr>

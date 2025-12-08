@@ -307,13 +307,24 @@
                                             title="Xem chi tiết">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                        <a href="index.php?act=admin-staff-edit&id=<?= $s['id'] ?>" class="btn btn-warning"
+
+                                        <a href="index.php?act=admin-staff-performance&id=<?= $s['id'] ?>"
+                                            class="btn btn-primary" title="Hiệu suất">
+                                            <i class="bi bi-graph-up"></i>
+                                        </a>
+
+                                        <a href="index.php?act=admin-staff-cert&staff_id=<?= $s['id'] ?>"
+                                            class="btn btn-warning" title="Chứng chỉ">
+                                            <i class="bi bi-award"></i>
+                                        </a>
+
+                                        <a href="index.php?act=admin-staff-edit&id=<?= $s['id'] ?>" class="btn btn-secondary"
                                             title="Sửa">
                                             <i class="bi bi-pencil"></i>
                                         </a>
+
                                         <a href="index.php?act=admin-staff-delete&id=<?= $s['id'] ?>" class="btn btn-danger"
-                                            title="Xóa"
-                                            onclick="return confirm('⚠️ Bạn có chắc muốn xóa HDV này?\n\nLưu ý: Hành động này KHÔNG THỂ hoàn tác!')">
+                                            title="Xóa" onclick="return confirm('⚠️ Xóa HDV này?')">
                                             <i class="bi bi-trash"></i>
                                         </a>
                                     </div>

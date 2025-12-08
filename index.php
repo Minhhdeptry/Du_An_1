@@ -25,6 +25,10 @@ require_once './controllers/admin/PaymentController.php';
 require_once './controllers/admin/ReportController.php';
 require_once './controllers/admin/ItineraryController.php';
 
+// require_once './controllers/admin/StaffScheduleController.php';
+// require_once './controllers/admin/StaffCertificateController.php';
+// require_once './controllers/admin/StaffRatingController.php';
+
 
 // Auth
 require_once './controllers/admin/AuthController.php';
@@ -67,6 +71,48 @@ match ($act) {
   'admin-category-edit' => (new CategoryController())->edit($currentAct),
   'admin-category-update' => (new CategoryController())->update(),
   'admin-category-delete' => (new CategoryController())->delete(),
+
+  // Lịch làm việc HDV
+    'admin-staff-calendar' => (new StaffScheduleController())->calendar($currentAct),
+    
+  // Phân công HDV cho tour
+    'admin-staff-assign-form' => (new StaffScheduleController())->assignForm($currentAct),
+    'admin-staff-assign-store' => (new StaffScheduleController())->assignStore(),
+    'admin-staff-remove-assignment' => (new StaffScheduleController())->removeAssignment(),
+    
+  // Hiệu suất HDV
+    'admin-staff-performance' => (new StaffScheduleController())->performance($currentAct),
+    
+  // API check availability
+    'admin-staff-check-availability' => (new StaffScheduleController())->checkAvailability(),
+    
+  // ================= CHỨNG CHỈ HDV ===================
+    
+  // Danh sách chứng chỉ
+    'admin-staff-cert' => (new StaffCertificateController())->index($currentAct),
+    
+  // Thêm chứng chỉ
+    'admin-staff-cert-create' => (new StaffCertificateController())->create($currentAct),
+    'admin-staff-cert-store' => (new StaffCertificateController())->store(),
+    
+  // Sửa chứng chỉ
+    'admin-staff-cert-edit' => (new StaffCertificateController())->edit($currentAct),
+    'admin-staff-cert-update' => (new StaffCertificateController())->update(),
+    
+  // Xóa chứng chỉ
+    'admin-staff-cert-delete' => (new StaffCertificateController())->delete(),
+    
+  // Chứng chỉ sắp hết hạn
+    'admin-staff-cert-expiring' => (new StaffCertificateController())->expiring($currentAct),
+    
+  // ================= ĐÁNH GIÁ HDV ===================
+    
+  // Danh sách đánh giá
+    'admin-staff-rating' => (new StaffRatingController())->index($currentAct),
+    
+  // Thêm đánh giá
+    'admin-staff-rating-create' => (new StaffRatingController())->create($currentAct),
+    'admin-staff-rating-store' => (new StaffRatingController())->store(),
 
   // ================= SCHEDULE ADMIN ===================
   'admin-schedule' => (new ScheduleController())->index($currentAct),
