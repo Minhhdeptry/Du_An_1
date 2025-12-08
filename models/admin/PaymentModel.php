@@ -1,4 +1,6 @@
 <?php
+// models/admin/PaymentModel.php
+
 class PaymentModel
 {
     private $pdo;
@@ -31,7 +33,6 @@ class PaymentModel
         $this->pdo = connectDB();
     }
 
-    // ✅ THÊM METHOD NÀY (thiếu trong code cũ)
     /** ========================
      *  📋 LẤY TẤT CẢ PAYMENTS
      *  ======================== */
@@ -89,6 +90,8 @@ class PaymentModel
         }
 
         try {
+            $this->pdo->beginTransaction();
+
             $payment_code = $this->generatePaymentCode();
             $booking_id = (int) $data['booking_id'];
             $amount = (float) $data['amount'];
@@ -117,12 +120,19 @@ class PaymentModel
 
             $payment_id = $this->pdo->lastInsertId();
 
-            // ✅ Cập nhật trạng thái booking dựa trên payment
-            $this->updateBookingStatus($booking_id);
+            // ✅ TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI BOOKING (chỉ khi payment SUCCESS)
+            if ($status === 'SUCCESS') {
+                $this->updateBookingStatusAuto($booking_id);
+            }
+
+            $this->pdo->commit();
 
             return ['ok' => true, 'payment_id' => $payment_id];
 
         } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("CreatePayment Error: " . $e->getMessage());
             return ['ok' => false, 'errors' => [$e->getMessage()]];
         }
@@ -205,25 +215,55 @@ class PaymentModel
     }
 
     /** ========================
-     *  🔄 CẬP NHẬT TRẠNG THÁI BOOKING
+     *  🔄 TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI BOOKING DỰA VÀO PAYMENT
+     *  ✅ Logic mới: 4 trạng thái (PENDING, DEPOSIT_PAID, COMPLETED, CANCELED)
      *  ======================== */
-    private function updateBookingStatus($booking_id)
+    private function updateBookingStatusAuto($booking_id)
     {
-        $paymentStatus = $this->getPaymentStatus($booking_id);
-
-        $newStatus = match ($paymentStatus) {
-            'FULL_PAID' => 'PAID',
-            'DEPOSIT_PAID' => 'CONFIRMED',
-            default => null
-        };
-
-        if ($newStatus) {
-            $stmt = $this->pdo->prepare("
-                UPDATE bookings 
-                SET status = ? 
-                WHERE id = ? AND status NOT IN ('COMPLETED', 'CANCELED')
-            ");
-            $stmt->execute([$newStatus, $booking_id]);
+        try {
+            $paymentStatus = $this->getPaymentStatus($booking_id);
+            
+            // Lấy booking hiện tại
+            $stmt = $this->pdo->prepare("SELECT status, total_amount FROM bookings WHERE id = ?");
+            $stmt->execute([$booking_id]);
+            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$booking) return;
+            
+            // Không update nếu đã COMPLETED hoặc CANCELED
+            if (in_array($booking['status'], ['COMPLETED', 'CANCELED'])) {
+                return;
+            }
+            
+            // ✅ Logic chuyển trạng thái theo 4 trạng thái mới
+            $newStatus = null;
+            $logMessage = null;
+            
+            if ($paymentStatus === 'FULL_PAID') {
+                // Đã thanh toán đủ → Hoàn tất
+                $newStatus = 'COMPLETED';
+                $logMessage = "Booking chuyển sang HOÀN TẤT (đã thanh toán đủ)";
+            } elseif ($paymentStatus === 'DEPOSIT_PAID') {
+                // Đã cọc
+                $newStatus = 'DEPOSIT_PAID';
+                $logMessage = "Booking chuyển sang ĐÃ CỌC (đã thanh toán một phần)";
+            }
+            
+            // Chỉ update nếu có thay đổi status
+            if ($newStatus && $newStatus !== $booking['status']) {
+                $stmt = $this->pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?");
+                $stmt->execute([$newStatus, $booking_id]);
+                
+                // Ghi log
+                $stmt = $this->pdo->prepare("
+                    INSERT INTO tour_logs (booking_id, entry_type, content, created_at)
+                    VALUES (?, 'NOTE', ?, NOW())
+                ");
+                $stmt->execute([$booking_id, $logMessage]);
+            }
+            
+        } catch (\Throwable $e) {
+            error_log("UpdateBookingStatusAuto Error: " . $e->getMessage());
         }
     }
 
@@ -233,11 +273,14 @@ class PaymentModel
     public function delete($payment_id)
     {
         try {
+            $this->pdo->beginTransaction();
+
             $stmt = $this->pdo->prepare("SELECT booking_id FROM payments WHERE id = ?");
             $stmt->execute([$payment_id]);
             $payment = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$payment) {
+                $this->pdo->rollBack();
                 return ['ok' => false, 'errors' => ['Payment không tồn tại']];
             }
 
@@ -246,11 +289,17 @@ class PaymentModel
             $stmt = $this->pdo->prepare("DELETE FROM payments WHERE id = ?");
             $stmt->execute([$payment_id]);
 
-            $this->updateBookingStatus($booking_id);
+            // ✅ Cập nhật lại trạng thái booking sau khi xóa payment
+            $this->updateBookingStatusAuto($booking_id);
+
+            $this->pdo->commit();
 
             return ['ok' => true];
 
         } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("DeletePayment Error: " . $e->getMessage());
             return ['ok' => false, 'errors' => [$e->getMessage()]];
         }
@@ -267,6 +316,8 @@ class PaymentModel
         }
 
         try {
+            $this->pdo->beginTransaction();
+
             $stmt = $this->pdo->prepare("
                 UPDATE payments SET
                     amount = ?,
@@ -292,13 +343,19 @@ class PaymentModel
             $stmt->execute([$payment_id]);
             $booking_id = $stmt->fetch(PDO::FETCH_ASSOC)['booking_id'] ?? null;
 
+            // ✅ TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI BOOKING
             if ($booking_id) {
-                $this->updateBookingStatus($booking_id);
+                $this->updateBookingStatusAuto($booking_id);
             }
+
+            $this->pdo->commit();
 
             return ['ok' => true];
 
         } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("UpdatePayment Error: " . $e->getMessage());
             return ['ok' => false, 'errors' => [$e->getMessage()]];
         }

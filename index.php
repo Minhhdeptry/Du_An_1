@@ -127,6 +127,8 @@ match ($act) {
   'admin-payment-history' => (new PaymentController())->history($currentAct),
   'admin-payment-confirm' => (new PaymentController())->confirm(),
   'admin-payment-cancel' => (new PaymentController())->cancel(),
+  'admin-payment-create' => (new PaymentController())->createForm($currentAct),
+  'admin-payment-store' => (new PaymentController())->store(),
 
 
   // ================= REPORT ===================
