@@ -25,9 +25,9 @@ require_once './controllers/admin/PaymentController.php';
 require_once './controllers/admin/ReportController.php';
 require_once './controllers/admin/ItineraryController.php';
 
-// require_once './controllers/admin/StaffScheduleController.php';
-// require_once './controllers/admin/StaffCertificateController.php';
-// require_once './controllers/admin/StaffRatingController.php';
+require_once './controllers/admin/StaffScheduleController.php';
+require_once './controllers/admin/StaffCertificateController.php';
+require_once './controllers/admin/StaffRatingController.php';
 
 
 // Auth
