@@ -123,7 +123,6 @@ class StaffCertificateModel
                 WHERE sc.expiry_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
                   AND sc.expiry_date >= CURDATE()
                   AND sc.status IN ('VALID', 'PENDING_RENEWAL')
-                  AND s.deleted_at IS NULL
                 ORDER BY sc.expiry_date ASC";
         
         $stmt = $this->pdo->prepare($sql);

@@ -84,6 +84,9 @@ class StaffScheduleController
     /**
      * Form phân công HDV cho tour
      */
+    /**
+     * Form phân công HDV cho tour
+     */
     public function assignForm($act)
     {
         $tour_schedule_id = $_GET['schedule_id'] ?? null;
@@ -103,15 +106,34 @@ class StaffScheduleController
             exit;
         }
 
-        // Lấy HDV đang rảnh
-        $available_staffs = $this->getAvailableStaffs($schedule['depart_date'], $schedule['return_date']);
+        // ✅ MỚI: Kiểm tra tour đã có HDV chưa
+        $hasGuide = !empty($schedule['guide_id']);
+        $hasAssistant = !empty($schedule['assistant_guide_id']);
+
+        // ✅ MỚI: Nếu đã đủ HDV thì chặn (trừ khi muốn thay thế)
+        $allowReassign = $_GET['allow_reassign'] ?? false;
+
+        if (($hasGuide && $hasAssistant) && !$allowReassign) {
+            $_SESSION['error'] = "⚠️ Tour này đã có đủ HDV! <br>" .
+                "HDV chính: " . ($schedule['guide_name'] ?? 'N/A') . "<br>" .
+                "HDV phụ: " . ($schedule['assistant_name'] ?? 'N/A') . "<br>" .
+                '<a href="?act=admin-staff-assign-form&schedule_id=' . $tour_schedule_id . '&allow_reassign=1" class="btn btn-sm btn-warning mt-2">Thay đổi HDV</a>';
+            header("Location: index.php?act=admin-schedule");
+            exit;
+        }
+
+        // Lấy HDV đang rảnh (loại trừ HDV đang bận)
+        $available_staffs = $this->getAvailableStaffs(
+            $schedule['depart_date'],
+            $schedule['return_date'],
+            $tour_schedule_id // ✅ SỬA: Dùng $tour_schedule_id thay vì $schedule_id
+        );
 
         $pageTitle = "Phân công HDV - " . $schedule['tour_title'];
         $currentAct = $act;
         $view = "./views/admin/Staff/assign.php";
         include "./views/layout/adminLayout.php";
     }
-
     /**
      * Lưu phân công
      */
@@ -158,29 +180,44 @@ class StaffScheduleController
     /**
      * Lấy HDV đang rảnh
      */
-    private function getAvailableStaffs($depart_date, $return_date)
+    /**
+     * Lấy HDV đang rảnh (đã loại trừ HDV đang bận)
+     */
+    private function getAvailableStaffs($depart_date, $return_date, $current_schedule_id = null)
     {
-        $sql = "SELECT s.id, u.full_name, u.email, s.staff_type, s.rating
-                FROM staffs s
-                JOIN users u ON u.id = s.user_id
-                WHERE s.status = 'ACTIVE'
-                  AND s.deleted_at IS NULL
-                  AND s.id NOT IN (
-                      SELECT DISTINCT sth.staff_id
-                      FROM staff_tour_history sth
-                      JOIN tour_schedule ts ON ts.id = sth.tour_schedule_id
-                      WHERE sth.status = 'SCHEDULED'
-                        AND (
-                            (ts.depart_date BETWEEN ? AND ?)
-                            OR (ts.return_date BETWEEN ? AND ?)
-                            OR (? BETWEEN ts.depart_date AND ts.return_date)
-                        )
-                  )
-                ORDER BY s.rating DESC, u.full_name ASC";
+        $sql = "SELECT s.id, u.full_name, u.email, s.staff_type, s.rating,
+                   -- Kiểm tra xem HDV có lịch trùng không
+                   (SELECT COUNT(*) 
+                    FROM tour_schedule ts2 
+                    WHERE (ts2.guide_id = s.id OR ts2.assistant_guide_id = s.id)
+                      AND ts2.status IN ('OPEN', 'CLOSED')
+                      AND ts2.id != COALESCE(?, 0)
+                      AND (
+                          (ts2.depart_date BETWEEN ? AND ?)
+                          OR (ts2.return_date BETWEEN ? AND ?)
+                          OR (? BETWEEN ts2.depart_date AND ts2.return_date)
+                          OR (? BETWEEN ts2.depart_date AND ts2.return_date)
+                      )
+                   ) as conflict_count
+            FROM staffs s
+            JOIN users u ON u.id = s.user_id
+            WHERE s.status = 'ACTIVE'
+              AND u.role = 'HDV'
+            HAVING conflict_count = 0  -- ✅ Chỉ lấy HDV không có lịch trùng
+            ORDER BY s.rating DESC, u.full_name ASC";
 
         $pdo = $this->staffModel->getConnection();
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$depart_date, $return_date, $depart_date, $return_date, $depart_date]);
+        $stmt->execute([
+            $current_schedule_id,
+            $depart_date,
+            $return_date,
+            $depart_date,
+            $return_date,
+            $depart_date,
+            $return_date
+        ]);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -266,7 +303,7 @@ class StaffScheduleController
     public function checkAvailability()
     {
         header('Content-Type: application/json');
-        
+
         $staff_id = $_GET['staff_id'] ?? null;
         $schedule_id = $_GET['schedule_id'] ?? null;
 
@@ -276,7 +313,7 @@ class StaffScheduleController
         }
 
         $available = $this->historyModel->checkAvailability($staff_id, $schedule_id);
-        
+
         echo json_encode([
             'available' => $available,
             'message' => $available ? 'HDV đang rảnh' : 'HDV đã có lịch trùng!'
