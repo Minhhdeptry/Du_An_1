@@ -92,9 +92,6 @@ class BookingController
     /** ------------------------
      *  Xử lý tạo booking
      */
-    /** ------------------------
-     *  Xử lý tạo booking
-     */
     public function store(): void
     {
         // ✅ Lấy author_id từ session

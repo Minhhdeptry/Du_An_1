@@ -1,7 +1,9 @@
 <?php
+require_once "./models/admin/PaymentModel.php";
 class BookingModel
 {
     private $pdo;
+    private $paymentModel;
 
     public static $statusLabels = [
         'PENDING' => 'Chờ xác nhận',
@@ -15,6 +17,7 @@ class BookingModel
     {
         require_once "./commons/function.php";
         $this->pdo = connectDB();
+        $this->paymentModel = new PaymentModel();
     }
 
     public function getConnection(): PDO
@@ -73,7 +76,7 @@ class BookingModel
     }
 
     /** ------------------------
-     *  ✅ Tạo booking mới
+     *  ✅ Tạo booking mới - CÓ TỰ ĐỘNG TẠO PAYMENT
      */
     public function create($data, $author_id = null)
     {
@@ -98,10 +101,8 @@ class BookingModel
             $tour_id = null;
 
             if (!empty($data['tour_id'])) {
-                // Mode 1: Chọn tour có sẵn
                 $tour_id = (int) $data['tour_id'];
             } elseif (!empty($data['custom_tour_name'])) {
-                // Mode 2: Tạo tour mới
                 $tour_id = $this->createOrGetCustomTour($data['custom_tour_name'], $data);
                 if (!$tour_id) {
                     throw new \Exception("Không thể tạo tour mới");
@@ -145,6 +146,13 @@ class BookingModel
 
             $booking_id = $this->pdo->lastInsertId();
 
+            // 🔥 TỰ ĐỘNG TẠO PAYMENT PENDING
+            $payment_id = $this->paymentModel->createInitialPayment($booking_id, $total_amount);
+
+            if (!$payment_id) {
+                throw new \Exception("Không thể tạo payment tự động");
+            }
+
             // Ghi log
             $this->pdo->prepare("
                 INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
@@ -152,12 +160,13 @@ class BookingModel
             ")->execute([
                         $booking_id,
                         $author_id,
-                        "Booking created with " . (!empty($data['tour_id']) ? "existing tour" : "custom tour: " . $data['custom_tour_name'])
+                        "Booking created with " . (!empty($data['tour_id']) ? "existing tour" : "custom tour: " . $data['custom_tour_name']) .
+                        ". Payment auto-created: PAY-" . $payment_id
                     ]);
 
             $this->pdo->commit();
 
-            return ['ok' => true, 'booking_id' => $booking_id];
+            return ['ok' => true, 'booking_id' => $booking_id, 'payment_id' => $payment_id];
 
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
@@ -617,25 +626,33 @@ class BookingModel
     public function getPaymentStatus($booking_id)
     {
         try {
+            // Lấy tổng tiền booking
+            $stmt = $this->pdo->prepare("SELECT total_amount FROM bookings WHERE id = ?");
+            $stmt->execute([$booking_id]);
+            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+            $total_booking = (float) ($booking['total_amount'] ?? 0);
+
+            if ($total_booking <= 0) {
+                return 'PENDING';
+            }
+
+            // Lấy tổng tiền đã thanh toán SUCCESS
             $stmt = $this->pdo->prepare("
-            SELECT 
-                SUM(CASE WHEN status = 'SUCCESS' THEN amount ELSE 0 END) as total_paid,
-                MAX(CASE WHEN type = 'FULL' AND status = 'SUCCESS' THEN 1 ELSE 0 END) as has_full_payment
-            FROM payments
-            WHERE booking_id = ?
-        ");
+                SELECT SUM(amount) as total_paid
+                FROM payments
+                WHERE booking_id = ? AND status = 'SUCCESS'
+            ");
             $stmt->execute([$booking_id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
             $total_paid = (float) ($result['total_paid'] ?? 0);
-            $has_full = (bool) $result['has_full_payment'];
 
+            // So sánh tổng tiền
             if ($total_paid == 0) {
                 return 'PENDING'; // Chưa thanh toán gì
-            } elseif ($has_full) {
-                return 'FULL_PAID'; // Đã thanh toán đầy đủ
+            } elseif ($total_paid >= $total_booking) {
+                return 'FULL_PAID'; // Đã thanh toán đủ (hoặc thừa)
             } else {
-                return 'DEPOSIT_PAID'; // Đã cọc (có payment nhưng chưa full)
+                return 'DEPOSIT_PAID'; // Đã cọc (chưa đủ)
             }
 
         } catch (\Throwable $e) {
@@ -643,6 +660,15 @@ class BookingModel
             return 'PENDING';
         }
     }
+
+    /** ------------------------
+     *  💰 LẤY TỔNG TIỀN ĐÃ THANH TOÁN
+     */
+    public function getTotalPaid($booking_id)
+    {
+        return $this->paymentModel->getTotalPaid($booking_id);
+    }
+
 
     /**
      * Cập nhật trạng thái booking dựa trên payment
