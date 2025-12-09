@@ -1,3 +1,5 @@
+
+
 <div style="background-image: url('assets/images/bg.jpg');
     background-size: cover;
     background-position: center;
@@ -9,7 +11,7 @@
             <div class="card-body p-5">
                 <h2 class="text-center fw-bold mb-3">Đăng Nhập Tài Khoản</h2>
                 <p class="text-center text-muted mb-4">Vui lòng sử dụng tài khoản đã được cấp để đăng nhập</p>
-                <form method="post" action="sign-in">
+                <form method="post" action="index.php?act=sign-in">
                     <div class="mb-4">
                         <label for="email" class="form-label fw-semibold">Email</label>
                         <input type="email" class="form-control form-control-lg bg-light border-0" id="email"
@@ -30,10 +32,13 @@
                             Ghi nhớ đăng nhập
                         </label>
                     </div>
-                    <?php if (isset($_SESSION['error'])): ?>
-                        <?php echo $_SESSION['error']; ?>
-                        <?php unset($_SESSION['error']); ?>
-                    <?php endif; ?>
+                   <?php if (isset($_SESSION['error'])): ?>
+    <div class="alert alert-danger">
+        <?php echo $_SESSION['error']; ?>
+        <?php unset($_SESSION['error']); ?>
+    </div>
+<?php endif; ?>
+
                     <button type="submit" class="btn btn-lg w-100 text-white fw-semibold mb-3"
                         style="background-color: #FF8B6A; border: none; border-radius: 8px;">
                         Sign In
@@ -41,7 +46,7 @@
 
                     <p class="text-center text-muted mb-0">
                         Bạn không có tài khoản?
-                        <a href="#" class="text-danger text-decoration-none fw-semibold">Liên hệ với quản trị viên</a>
+                        <a href="index.php?act=sign-up" class="text-danger text-decoration-none fw-semibold">Đăng ký ngay</a>
                     </p>
                 </form>
             </div>
