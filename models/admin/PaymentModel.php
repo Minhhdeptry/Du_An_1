@@ -27,11 +27,16 @@ class PaymentModel
         'ZALOPAY' => 'ZaloPay',
     ];
 
-    public function __construct()
+    public function __construct($pdo = null)
     {
-        require_once "./commons/function.php";
-        $this->pdo = connectDB();
+        if ($pdo) {
+            $this->pdo = $pdo;  // Dùng chung kết nối
+        } else {
+            require_once "./commons/function.php";
+            $this->pdo = connectDB();
+        }
     }
+
 
     /** ========================
      *  📋 LẤY TẤT CẢ PAYMENTS
@@ -61,16 +66,25 @@ class PaymentModel
      *  ======================== */
     public function createInitialPayment($booking_id, $total_amount)
     {
+        if (!$booking_id || !$total_amount) {
+            error_log("Invalid data for payment");
+            return null;
+        }
+
         try {
             $payment_code = $this->generatePaymentCode();
 
-            $stmt = $this->pdo->prepare("
-                INSERT INTO payments 
+            $sql = "INSERT INTO payments 
                 (payment_code, booking_id, amount, type, method, status, created_at)
-                VALUES (?, ?, ?, 'FULL', 'BANK_TRANSFER', 'PENDING', NOW())
-            ");
+                VALUES (:code, :booking_id, :amount, 'FULL', 'BANK_TRANSFER', 'PENDING', NOW())";
 
-            $stmt->execute([$payment_code, $booking_id, $total_amount]);
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':code' => $payment_code,
+                ':booking_id' => $booking_id,
+                ':amount' => $total_amount,
+            ]);
+
             return $this->pdo->lastInsertId();
 
         } catch (\Throwable $e) {
@@ -78,6 +92,7 @@ class PaymentModel
             return null;
         }
     }
+
 
     /** ========================
      *  💰 TẠO PAYMENT THỦ CÔNG (từ Admin)
@@ -222,23 +237,24 @@ class PaymentModel
     {
         try {
             $paymentStatus = $this->getPaymentStatus($booking_id);
-            
+
             // Lấy booking hiện tại
             $stmt = $this->pdo->prepare("SELECT status, total_amount FROM bookings WHERE id = ?");
             $stmt->execute([$booking_id]);
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$booking) return;
-            
+
+            if (!$booking)
+                return;
+
             // Không update nếu đã COMPLETED hoặc CANCELED
             if (in_array($booking['status'], ['COMPLETED', 'CANCELED'])) {
                 return;
             }
-            
+
             // ✅ Logic chuyển trạng thái theo 4 trạng thái mới
             $newStatus = null;
             $logMessage = null;
-            
+
             if ($paymentStatus === 'FULL_PAID') {
                 // Đã thanh toán đủ → Hoàn tất
                 $newStatus = 'COMPLETED';
@@ -248,12 +264,12 @@ class PaymentModel
                 $newStatus = 'DEPOSIT_PAID';
                 $logMessage = "Booking chuyển sang ĐÃ CỌC (đã thanh toán một phần)";
             }
-            
+
             // Chỉ update nếu có thay đổi status
             if ($newStatus && $newStatus !== $booking['status']) {
                 $stmt = $this->pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?");
                 $stmt->execute([$newStatus, $booking_id]);
-                
+
                 // Ghi log
                 $stmt = $this->pdo->prepare("
                     INSERT INTO tour_logs (booking_id, entry_type, content, created_at)
@@ -261,7 +277,7 @@ class PaymentModel
                 ");
                 $stmt->execute([$booking_id, $logMessage]);
             }
-            
+
         } catch (\Throwable $e) {
             error_log("UpdateBookingStatusAuto Error: " . $e->getMessage());
         }

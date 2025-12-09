@@ -10,7 +10,7 @@ $currentAct = $currentAct ?? '';
     </a>
 
     <a href="?act=admin-tour"
-        class="menu-item <?= (in_array($currentAct, ['admin-tour', 'admin-tour-create', 'admin-tour-edit']) ? 'active' : '') ?>">
+        class="menu-item <?= (in_array($currentAct, ['admin-tour', 'admin-tour-create', 'admin-tour-edit', 'admin-tour-detail']) ? 'active' : '') ?>">
         <i class="fas fa-map menu-icon"></i>
         <span>Quản lý Danh Sách Tour</span>
     </a>

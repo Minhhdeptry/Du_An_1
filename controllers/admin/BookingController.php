@@ -211,6 +211,7 @@ class BookingController
         $author_id = $_SESSION['user_id'] ?? null;
 
         $data = $_POST;
+    
         $res = $this->bookingModel->update($id, $data, $author_id);
 
         if ($res['ok'] ?? false) {

@@ -49,8 +49,10 @@ match ($act) {
   'admin-tour-create' => (new TourController())->create($currentAct),
   'admin-tour-store' => (new TourController())->store(),
   'admin-tour-edit' => (new TourController())->edit($currentAct),
+  'admin-tour-detail' => (new TourController())->detail($currentAct),
   'admin-tour-update' => (new TourController())->update(),
   'admin-tour-delete' => (new TourController())->delete(),
+  
 
   // ================= BOOKING ADMIN ===================
   'admin-booking' => (new BookingController())->index($currentAct),
