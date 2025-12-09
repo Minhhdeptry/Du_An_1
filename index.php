@@ -9,7 +9,7 @@
 <?php
 session_start();
 
-
+// ✅ Bước 2: Load môi trường và function
 require_once './commons/env.php'; // Khai báo biến môi trường
 require_once './commons/function.php'; // Hàm hỗ trợ
 
@@ -37,11 +37,31 @@ require_once './controllers/admin/AuthController.php';
 $act = ($_GET['act'] ?? 'dashboard');
 $currentAct = $act;
 
+// ✅ Bước 5: Middleware - Kiểm tra đăng nhập
+$publicRoutes = ['sign-in', 'sign-up', 'logout'];
+
+if (!in_array($act, $publicRoutes)) {
+    // Kiểm tra đã đăng nhập chưa
+    if (!isset($_SESSION['user'])) {
+        $_SESSION['error'] = "Vui lòng đăng nhập để tiếp tục!";
+        header("Location: index.php?act=sign-in");
+        exit();
+    }
+
+    // ✅ FIX: Chỉ kiểm tra role ADMIN cho các route có prefix "admin-"
+    if (strpos($act, 'admin-') === 0 && $_SESSION['user']['role'] !== 'ADMIN') {
+        $_SESSION['error'] = "Bạn không có quyền truy cập!";
+        header("Location: index.php?act=sign-in");
+        exit();
+    }
+}
+
 match ($act) {
 
   // ================= AUTH ===================
   'sign-in' => (new AuthController())->SignIn(),
   'sign-up' => (new AuthController())->SignUp(),
+  'logout' => (new AuthController())->logout(),
 
 
   // ================= TOUR ADMIN ===================
@@ -142,8 +162,6 @@ match ($act) {
   'admin-itinerary-edit' => (new ItineraryController())->edit($currentAct),
   'admin-itinerary-update' => (new ItineraryController())->update(),
   'admin-itinerary-delete' => (new ItineraryController())->delete(),
-
-
 
 
 
