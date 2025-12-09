@@ -76,7 +76,7 @@ class TourController
     {
         $categories = $this->pdo->query("SELECT id, name FROM tour_category")->fetchAll();
         $id = $_GET["id"];
-        $tour = $this->model->findWithCategory($id);  
+        $tour = $this->model->findWithCategory($id);
 
         $pageTitle = "Sửa Tour";
         $currentAct = $act;
@@ -128,5 +128,56 @@ class TourController
 
         header("Location: index.php?act=admin-tour");
         exit;
+    }
+
+    // Thêm method này vào controllers/admin/TourController.php
+
+    // Thêm method này vào controllers/admin/TourController.php
+
+    public function detail($act)
+    {
+        $id = $_GET['id'] ?? null;
+
+        if (!$id) {
+            header("Location: index.php?act=admin-tour");
+            exit;
+        }
+
+        // Lấy thông tin tour
+        $tour = $this->model->findWithCategory($id);
+
+        if (!$tour) {
+            $_SESSION['error'] = "❌ Tour không tồn tại!";
+            header("Location: index.php?act=admin-tour");
+            exit;
+        }
+
+        // ✅ Kiểm tra có lịch mở không
+        $stmt = $this->pdo->prepare("SELECT status FROM tour_schedule WHERE tour_id = ?");
+        $stmt->execute([$id]);
+        $schedules = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $hasOpen = false;
+        foreach ($schedules as $s) {
+            if ($s['status'] === 'OPEN') {
+                $hasOpen = true;
+                break;
+            }
+        }
+
+        $tour['display_status'] = $hasOpen ? 'Hiển thị' : 'Ẩn';
+
+        // Lấy lịch trình
+        require_once "./models/admin/ItineraryModel.php";
+        $itineraryModel = new ItineraryModel();
+        $itineraries = $itineraryModel->getByTour($id);
+
+        // Lấy thống kê
+        $stats = $this->model->getTourStats($id);
+
+        $pageTitle = "Chi tiết: " . $tour['title'];
+        $currentAct = $act;
+        $view = "./views/admin/Tours/detail.php";
+        include "./views/layout/adminLayout.php";
     }
 }

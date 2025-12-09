@@ -136,7 +136,13 @@
                                     </span>
                                 </td>
 
+                                <!-- Thay thế phần "Hành động" trong views/admin/Tours/index.php -->
+
                                 <td>
+                                    <a href="index.php?act=admin-tour-detail&id=<?= $t['id'] ?>"
+                                        class="btn btn-sm btn-primary me-1 mb-1" title="Xem chi tiết">
+                                        <i class="bi bi-eye"></i> Chi tiết
+                                    </a>
                                     <a href="index.php?act=admin-itinerary&tour_id=<?= $t['id'] ?>"
                                         class="btn btn-sm btn-info me-1 mb-1" title="Quản lý lịch trình theo ngày">
                                         <i class="bi bi-calendar-week"></i> Lịch trình

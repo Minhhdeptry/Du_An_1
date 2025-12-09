@@ -36,29 +36,41 @@ class TourScheduleModel
     }
 
     // Tìm kiếm lịch theo tour, mã tour, ngày đi/về, danh mục
+    // Thay thế method searchByKeyword trong models/admin/TourScheduleModel.php
+
     public function searchByKeyword($keyword)
     {
         $sql = "SELECT ts.*, 
-                       t.title AS tour_title, t.code AS tour_code, 
-                       c.name AS category_name,
-                       u1.full_name AS guide_name,
-                       u2.full_name AS assistant_name
-                FROM tour_schedule ts
-                JOIN tours t ON ts.tour_id = t.id
-                LEFT JOIN tour_category c ON t.category_id = c.id
-                LEFT JOIN staffs s1 ON ts.guide_id = s1.id
-                LEFT JOIN users u1 ON s1.user_id = u1.id
-                LEFT JOIN staffs s2 ON ts.assistant_guide_id = s2.id
-                LEFT JOIN users u2 ON s2.user_id = u2.id
-                WHERE t.title LIKE :kw
-                   OR t.code LIKE :kw
-                   OR ts.depart_date LIKE :kw
-                   OR ts.return_date LIKE :kw
-                   OR c.name LIKE :kw
-                ORDER BY ts.id DESC";
+                   t.title AS tour_title, t.code AS tour_code, 
+                   c.name AS category_name,
+                   u1.full_name AS guide_name,
+                   u2.full_name AS assistant_name
+            FROM tour_schedule ts
+            JOIN tours t ON ts.tour_id = t.id
+            LEFT JOIN tour_category c ON t.category_id = c.id
+            LEFT JOIN staffs s1 ON ts.guide_id = s1.id
+            LEFT JOIN users u1 ON s1.user_id = u1.id
+            LEFT JOIN staffs s2 ON ts.assistant_guide_id = s2.id
+            LEFT JOIN users u2 ON s2.user_id = u2.id
+            WHERE t.title LIKE ?
+               OR t.code LIKE ?
+               OR ts.depart_date LIKE ?
+               OR ts.return_date LIKE ?
+               OR c.name LIKE ?
+            ORDER BY ts.id DESC";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':kw' => "%$keyword%"]);
+
+        // ✅ FIX: Cần 5 tham số vì có 5 dấu ? trong WHERE
+        $searchTerm = "%$keyword%";
+        $stmt->execute([
+            $searchTerm,  // t.title LIKE ?
+            $searchTerm,  // t.code LIKE ?
+            $searchTerm,  // ts.depart_date LIKE ?
+            $searchTerm,  // ts.return_date LIKE ?
+            $searchTerm   // c.name LIKE ?
+        ]);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
