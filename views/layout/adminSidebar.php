@@ -28,7 +28,7 @@ $currentAct = $currentAct ?? '';
     </a>
 
     <a href="?act=admin-staff"
-        class="menu-item <?= (in_array($currentAct, ['admin-staff', 'admin-staff-create', 'admin-staff-edit']) ? 'active' : '') ?>">
+        class="menu-item <?= (in_array($currentAct, ['admin-staff', 'admin-staff-create', 'admin-staff-edit','admin-staff-detail','admin-staff-cert', 'admin-staff-cert-create', 'admin-staff-cert-edit', 'admin-staff-cert-detail', 'admin-staff-performance']) ? 'active' : '') ?>">
         <i class="fas fa-user-tie menu-icon"></i>
         <span>Nhân viên</span>
     </a>

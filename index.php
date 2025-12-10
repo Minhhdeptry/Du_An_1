@@ -97,6 +97,14 @@ match ($act) {
 
   // Lịch làm việc HDV
     'admin-staff-calendar' => (new StaffScheduleController())->calendar($currentAct),
+
+  // Lịch làm việc HDV
+    'admin-staff-cert' => (new StaffCertificateController())->index($currentAct),
+    'admin-staff-cert-create' => (new StaffCertificateController())->create($currentAct),
+    'admin-staff-cert-edit' => (new StaffCertificateController())->edit($currentAct),
+    'admin-staff-cert-store' => (new StaffCertificateController())->store(),
+    'admin-staff-cert-delete' => (new StaffCertificateController())->delete(),
+    'admin-staff-cert-update' => (new StaffCertificateController())->update(),
     
   // Phân công HDV cho tour
     'admin-staff-assign-form' => (new StaffScheduleController())->assignForm($currentAct),

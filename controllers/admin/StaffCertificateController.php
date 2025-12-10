@@ -46,24 +46,29 @@ class StaffCertificateController
     }
 
     /**
-     * Form thêm chứng chỉ
+     * Hiển thị form thêm chứng chỉ
      */
     public function create($act)
     {
         $staff_id = $_GET['staff_id'] ?? null;
 
         if (!$staff_id) {
-            $_SESSION['error'] = "❌ Không tìm thấy HDV!";
+            $_SESSION['error'] = "❌ Không tìm thấy hướng dẫn viên!";
             header("Location: index.php?act=admin-staff");
             exit;
         }
 
         $staff = $this->staffModel->find($staff_id);
+
         if (!$staff) {
-            $_SESSION['error'] = "❌ HDV không tồn tại!";
+            $_SESSION['error'] = "❌ Hướng dẫn viên không tồn tại!";
             header("Location: index.php?act=admin-staff");
             exit;
         }
+
+        // Lấy dữ liệu cũ nếu có lỗi
+        $old = $_SESSION['old_data'] ?? [];
+        unset($_SESSION['old_data']);
 
         $pageTitle = "Thêm chứng chỉ - " . $staff['full_name'];
         $currentAct = $act;
