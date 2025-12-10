@@ -8,9 +8,9 @@ class BookingModel
     private $pdo;
     private $paymentModel;
 
-    // ✅ CHỈ CÒN 4 TRẠNG THÁI THEO YÊU CẦU
     public static $statusLabels = [
         'PENDING' => 'Chờ xác nhận',
+        'CONFIRMED' => 'Đã xác nhận',
         'DEPOSIT_PAID' => 'Đã cọc',
         'COMPLETED' => 'Hoàn tất',
         'CANCELED' => 'Hủy',
@@ -193,6 +193,7 @@ class BookingModel
     /** ========================
      *  ✅ CẬP NHẬT BOOKING
      *  ======================== */
+
     public function update($id, $data, $author_id = null)
     {
         $old = $this->find($id);
@@ -224,11 +225,11 @@ class BookingModel
             $this->pdo->beginTransaction();
 
             $this->pdo->prepare("
-                UPDATE bookings SET
-                    tour_schedule_id = ?, contact_name = ?, contact_phone = ?, contact_email = ?,
-                    adults = ?, children = ?, total_people = ?, total_amount = ?, status = ?, special_request = ?
-                WHERE id = ?
-            ")->execute([
+            UPDATE bookings SET
+                tour_schedule_id = ?, contact_name = ?, contact_phone = ?, contact_email = ?,
+                adults = ?, children = ?, total_people = ?, total_amount = ?, status = ?, special_request = ?
+            WHERE id = ?
+        ")->execute([
                         $schedule_id,
                         $data['contact_name'] ?? '',
                         $data['contact_phone'] ?? '',
@@ -242,24 +243,29 @@ class BookingModel
                         $id
                     ]);
 
+            // ✅ Ghi log nếu status thay đổi
             if ($old['status'] !== $status) {
                 $this->pdo->prepare("
-                    INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
-                    VALUES (?, ?, 'NOTE', ?)
-                ")->execute([
+                INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
+                VALUES (?, ?, 'NOTE', ?)
+            ")->execute([
                             $id,
                             $author_id,
-                            "Trạng thái chuyển từ " . (self::$statusLabels[$old['status']] ?? $old['status']) .
+                            "Admin thay đổi trạng thái từ " . (self::$statusLabels[$old['status']] ?? $old['status']) .
                             " sang " . (self::$statusLabels[$status] ?? $status)
                         ]);
             }
 
             $this->pdo->commit();
 
+            // ✅ CẬP NHẬT SEATS (nếu cần)
             $this->updateSeats($old['tour_schedule_id']);
             if ($old['tour_schedule_id'] !== $schedule_id) {
                 $this->updateSeats($schedule_id);
             }
+
+            // ❌ BỎ DÒNG NÀY - Không tự động update status nữa
+            // $this->updateBookingStatusAuto($id);
 
             return ['ok' => true];
 
@@ -316,9 +322,7 @@ class BookingModel
      *  ✅ XÁC NHẬN BOOKING (Chỉ ghi log, không đổi status)
      *  Status sẽ tự động đổi khi có payment
      *  ======================== */
-    /**
-     * ✅ XÁC NHẬN BOOKING (PENDING → Chuyển trạng thái dựa trên payment)
-     */
+
     public function confirmBooking($booking_id, $author_id = null)
     {
         $b = $this->find($booking_id);
@@ -332,12 +336,11 @@ class BookingModel
         try {
             $this->pdo->beginTransaction();
 
-            // ✅ OPTION 1: Chuyển sang CONFIRMED nếu chưa thanh toán
-            // Nếu đã có payment thì để PaymentModel tự động chuyển trạng thái
+            // Lấy trạng thái thanh toán
             $paymentStatus = $this->paymentModel->getPaymentStatus($booking_id);
 
-            $newStatus = 'PENDING'; // Mặc định vẫn pending
-            $logMessage = "Admin đã XÁC NHẬN booking.";
+            $newStatus = 'CONFIRMED'; // ✅ Mặc định là CONFIRMED
+            $logMessage = "Admin đã XÁC NHẬN booking. Chờ khách thanh toán.";
 
             if ($paymentStatus === 'FULL_PAID') {
                 $newStatus = 'COMPLETED';
@@ -345,34 +348,21 @@ class BookingModel
             } elseif ($paymentStatus === 'DEPOSIT_PAID') {
                 $newStatus = 'DEPOSIT_PAID';
                 $logMessage = "Admin xác nhận booking. Đã cọc → Chuyển sang Đã cọc.";
-            } else {
-                // Chưa thanh toán → Chuyển sang CONFIRMED để phân biệt với PENDING
-                $newStatus = 'PENDING'; // Hoặc có thể tạo thêm status 'CONFIRMED'
-                $logMessage = "Admin đã XÁC NHẬN booking. Chờ khách thanh toán.";
             }
 
-            // ✅ Cập nhật trạng thái
-            if ($newStatus !== 'PENDING') {
-                $this->pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")
-                    ->execute([$newStatus, $booking_id]);
-            }
+            // ✅ Update status
+            $this->pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")
+                ->execute([$newStatus, $booking_id]);
 
             // Ghi log
             $this->pdo->prepare("
             INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
             VALUES (?, ?, 'NOTE', ?)
-        ")->execute([
-                        $booking_id,
-                        $author_id,
-                        $logMessage
-                    ]);
+        ")->execute([$booking_id, $author_id, $logMessage]);
 
             $this->pdo->commit();
 
-            $_SESSION['success'] = "✅ Đã xác nhận booking! " .
-                ($newStatus !== 'PENDING' ? "Trạng thái: " . self::$statusLabels[$newStatus] : "");
-
-            return ['ok' => true];
+            return ['ok' => true, 'message' => $logMessage];
 
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {

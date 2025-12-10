@@ -147,10 +147,12 @@ match ($act) {
   // ================= PAYMENT ADMIN ===================
   'admin-payment' => (new PaymentController())->index($currentAct),
   'admin-payment-history' => (new PaymentController())->history($currentAct),
+  'admin-payment-edit' => (new PaymentController())->editForm($currentAct),
   'admin-payment-confirm' => (new PaymentController())->confirm(),
   'admin-payment-cancel' => (new PaymentController())->cancel(),
   'admin-payment-create' => (new PaymentController())->createForm($currentAct),
   'admin-payment-store' => (new PaymentController())->store(),
+  'admin-payment-update' => (new PaymentController())->update(),
 
 
   // ================= REPORT ===================

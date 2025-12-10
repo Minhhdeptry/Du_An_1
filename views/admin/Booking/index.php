@@ -158,14 +158,15 @@
                     </thead>
 
                     <tbody>
-                        <?php $i = 1; foreach ($bookings as $b): ?>
+                        <?php $i = 1;
+                        foreach ($bookings as $b): ?>
                             <tr>
                                 <td><?= $i++ ?></td>
 
                                 <td>
                                     <code class="bg-light px-2 py-1 rounded">
-                                        <?= htmlspecialchars($b['booking_code']) ?>
-                                    </code>
+                                                <?= htmlspecialchars($b['booking_code']) ?>
+                                            </code>
                                 </td>
 
                                 <td>
@@ -193,40 +194,38 @@
 
                                 <td class="text-center">
                                     <span class="badge bg-secondary">
-                                        <?= (int)$b['adults'] + (int)$b['children'] ?>
+                                        <?= (int) $b['adults'] + (int) $b['children'] ?>
                                     </span>
                                 </td>
 
                                 <td class="text-end">
                                     <strong class="text-primary">
-                                        <?= number_format((float)$b['total_amount'], 0, ',', '.') ?>đ
+                                        <?= number_format((float) $b['total_amount'], 0, ',', '.') ?>đ
                                     </strong>
                                 </td>
 
                                 <!-- ✅ CỘT 1: Trạng thái BOOKING (4 trạng thái theo yêu cầu) -->
                                 <td class="text-center">
                                     <?php
-                                    // Logic: Dựa vào payment_status để hiển thị trạng thái booking
                                     $paymentStatus = $b['payment_status'] ?? 'PENDING';
                                     $bookingStatus = $b['status'] ?? 'PENDING';
-                                    
+
                                     if ($bookingStatus === 'CANCELED') {
-                                        // Nếu đã hủy → hiển thị Hủy
                                         $displayStatus = '<span class="badge bg-danger">❌ Hủy</span>';
                                     } elseif ($bookingStatus === 'COMPLETED') {
-                                        // Nếu hoàn tất → hiển thị Hoàn tất
                                         $displayStatus = '<span class="badge bg-success">🎉 Hoàn tất</span>';
                                     } elseif ($paymentStatus === 'FULL_PAID') {
-                                        // Nếu đã thanh toán đủ → hiển thị Hoàn tất (hoặc có thể để "Đã cọc" nếu chưa hoàn thành tour)
                                         $displayStatus = '<span class="badge bg-success">🎉 Hoàn tất</span>';
-                                    } elseif ($paymentStatus === 'DEPOSIT_PAID') {
-                                        // Nếu đã cọc → hiển thị Đã cọc
+                                    } elseif ($bookingStatus === 'DEPOSIT_PAID' || $paymentStatus === 'DEPOSIT_PAID') {
                                         $displayStatus = '<span class="badge bg-info">💵 Đã cọc</span>';
+                                    } elseif ($bookingStatus === 'CONFIRMED') {
+                                        // ✅ Đã xác nhận nhưng chưa thanh toán
+                                        $displayStatus = '<span class="badge bg-primary">✅ Đã xác nhận</span>';
                                     } else {
-                                        // Mặc định → Chờ xác nhận
+                                        // PENDING - Chưa xác nhận
                                         $displayStatus = '<span class="badge bg-warning text-dark">⏳ Chờ xác nhận</span>';
                                     }
-                                    
+
                                     echo $displayStatus;
                                     ?>
                                 </td>
@@ -234,7 +233,7 @@
                                 <!-- ✅ CỘT 2: Trạng thái THANH TOÁN (từ payment_status) -->
                                 <td class="text-center">
                                     <?php
-                                    $paymentStatusBadge = match($b['payment_status'] ?? 'PENDING') {
+                                    $paymentStatusBadge = match ($b['payment_status'] ?? 'PENDING') {
                                         'FULL_PAID' => '<span class="badge bg-success">💰 Đã thanh toán đủ</span>',
                                         'DEPOSIT_PAID' => '<span class="badge bg-info">💵 Đã cọc</span>',
                                         default => '<span class="badge bg-secondary">⏸️ Chưa thanh toán</span>'
@@ -246,33 +245,30 @@
                                 <td class="text-center">
                                     <div class="btn-group btn-group-sm" role="group">
                                         <!-- Nút Sửa -->
-                                        <a href="index.php?act=admin-booking-edit&id=<?= $b['id'] ?>" 
-                                           class="btn btn-warning" title="Sửa booking">
+                                        <a href="index.php?act=admin-booking-edit&id=<?= $b['id'] ?>" class="btn btn-warning"
+                                            title="Sửa booking">
                                             <i class="bi bi-pencil"></i>
                                         </a>
 
                                         <!-- Nút Xác nhận (nếu PENDING) -->
                                         <?php if ($b['status'] === 'PENDING'): ?>
-                                            <a href="index.php?act=admin-booking-confirm&id=<?= $b['id'] ?>" 
-                                               class="btn btn-success"
-                                               onclick="return confirm('Xác nhận booking này?')" 
-                                               title="Xác nhận">
+                                            <a href="index.php?act=admin-booking-confirm&id=<?= $b['id'] ?>" class="btn btn-success"
+                                                onclick="return confirm('Xác nhận booking này?')" title="Xác nhận">
                                                 <i class="bi bi-check-lg"></i>
                                             </a>
                                         <?php endif; ?>
 
                                         <!-- Nút Chi tiết -->
-                                        <a href="index.php?act=admin-booking-detail&id=<?= $b['id'] ?>" 
-                                           class="btn btn-info" title="Xem chi tiết">
+                                        <a href="index.php?act=admin-booking-detail&id=<?= $b['id'] ?>" class="btn btn-info"
+                                            title="Xem chi tiết">
                                             <i class="bi bi-eye"></i>
                                         </a>
 
                                         <!-- Nút Hủy (nếu chưa hủy) -->
                                         <?php if ($b['status'] !== 'CANCELED'): ?>
-                                            <a href="index.php?act=admin-booking-cancel&id=<?= $b['id'] ?>" 
-                                               class="btn btn-danger"
-                                               onclick="return confirm('⚠️ Bạn có chắc muốn HỦY booking này?\n\nLưu ý: Hành động này KHÔNG THỂ hoàn tác!')"
-                                               title="Hủy booking">
+                                            <a href="index.php?act=admin-booking-cancel&id=<?= $b['id'] ?>" class="btn btn-danger"
+                                                onclick="return confirm('⚠️ Bạn có chắc muốn HỦY booking này?\n\nLưu ý: Hành động này KHÔNG THỂ hoàn tác!')"
+                                                title="Hủy booking">
                                                 <i class="bi bi-trash"></i>
                                             </a>
                                         <?php endif; ?>
@@ -292,14 +288,14 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 
 <script>
-// Auto dismiss alerts sau 5s
-document.addEventListener('DOMContentLoaded', function() {
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(alert => {
-        setTimeout(() => {
-            const bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
-        }, 5000);
+    // Auto dismiss alerts sau 5s
+    document.addEventListener('DOMContentLoaded', function () {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 5000);
+        });
     });
-});
 </script>
