@@ -131,6 +131,7 @@ match ($act) {
   'admin-staff' => (new StaffController())->index($currentAct),
   'admin-staff-create' => (new StaffController())->create($currentAct),
   'admin-staff-edit' => (new StaffController())->edit($currentAct),
+  'admin-staff-detail' => (new StaffController())->detail($currentAct),
   'admin-staff-store' => (new StaffController())->store(),
   'admin-staff-update' => (new StaffController())->update(),
   'admin-staff-delete' => (new StaffController())->delete(),

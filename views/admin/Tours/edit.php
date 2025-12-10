@@ -45,21 +45,29 @@
             </div>
 
             <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">Số ngày</label>
-                    <input type="number" name="duration_days" class="form-control"
-                        value="<?= $tour['duration_days'] ?>">
-                </div>
-                <div class="col-md-8">
-                    <label class="form-label">Danh mục Tour</label>
-                    <select name="category_id" class="form-control">
-                        <?php foreach ($categories as $c): ?>
-                            <option value="<?= $c['id'] ?>" <?= $c['id'] == $tour['category_id'] ? "selected" : "" ?>>
-                                <?= $c['name'] ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Số ngày</label>
+                        <input type="number" name="duration_days" class="form-control"
+                            value="<?= $tour['duration_days'] ?>">
+                    </div>
+                    <!-- ✅ THÊM TRƯỜNG SỐ GHẾ -->
+                    <div class="col-md-4">
+                        <label class="form-label">Số ghế mặc định</label>
+                        <input type="number" name="default_seats" class="form-control"
+                            value="<?= $tour['default_seats'] ?? 30 ?>" min="1">
+                        <small class="text-muted">Số ghế mặc định cho tour này</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Danh mục Tour</label>
+                        <select name="category_id" class="form-control">
+                            <?php foreach ($categories as $c): ?>
+                                <option value="<?= $c['id'] ?>" <?= $c['id'] == $tour['category_id'] ? "selected" : "" ?>>
+                                    <?= $c['name'] ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
             </div>
 

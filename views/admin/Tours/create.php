@@ -24,6 +24,10 @@
 
                 <form method="post" action="index.php?act=admin-tour-store" enctype="multipart/form-data">
 
+                    <div class="form-group">
+                        <label>Tiêu đề</label>
+                        <input name="title" class="form-control" placeholder="Tên tour">
+                    </div>
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label">Mã Tour</label>
@@ -39,24 +43,29 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Tiêu đề</label>
-                        <input name="title" class="form-control" placeholder="Tên tour">
-                    </div>
+                    <!-- ✅ THÊM DÒNG NÀY -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Số ghế (mặc định cho tour)</label>
+                            <input type="number" name="default_seats" class="form-control" placeholder="VD: 30" min="1"
+                                value="30">
+                            <small class="text-muted">Số ghế mặc định khi tạo lịch khởi hành cho tour này</small>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label>Số ngày</label>
+                                <input type="number" name="duration_days" class="form-control" placeholder="VD: 3">
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label>Danh mục</label>
+                                <select name="category_id" class="form-control">
+                                    <?php foreach ($categories as $c): ?>
+                                        <option value="<?= $c['id'] ?>"><?= $c['name'] ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
 
-                    <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label>Số ngày</label>
-                            <input type="number" name="duration_days" class="form-control" placeholder="VD: 3">
-                        </div>
-                        <div class="form-group col-md-6">
-                            <label>Danh mục</label>
-                            <select name="category_id" class="form-control">
-                                <?php foreach ($categories as $c): ?>
-                                    <option value="<?= $c['id'] ?>"><?= $c['name'] ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
                     </div>
 
                     <div class="form-group">
