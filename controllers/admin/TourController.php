@@ -50,9 +50,10 @@ class TourController
         }
 
         $sql = "INSERT INTO tours 
-            (code, title, short_desc, full_desc, adult_price, child_price, duration_days, 
-             category_id, policy, image_url, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        (code, title, short_desc, full_desc, adult_price, child_price, duration_days, 
+         category_id, policy, image_url, is_active, default_seats)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             $_POST["code"],
@@ -65,7 +66,8 @@ class TourController
             $_POST["category_id"],
             $_POST["policy"],
             $imageName,
-            $_POST["is_active"]
+            $_POST["is_active"],
+            $_POST["default_seats"] ?? 30  // ✅ Thêm dòng này
         ]);
 
         header("Location: index.php?act=admin-tour");

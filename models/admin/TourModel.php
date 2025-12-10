@@ -128,26 +128,39 @@ class TourModel
     }
 
 
-    public function store($data)
+    public function store()
     {
-        $sql = "INSERT INTO tours(code, title, short_desc, full_desc, adult_price, child_price, duration_days, 
-            category_id, policy, image_url, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $imageName = null;
+
+        if (!empty($_FILES["image_file"]["name"])) {
+            $uploadDir = "assets/images/";
+            $imageName = time() . "_" . basename($_FILES["image_file"]["name"]);
+            move_uploaded_file($_FILES["image_file"]["tmp_name"], $uploadDir . $imageName);
+        }
+
+        $sql = "INSERT INTO tours 
+        (code, title, short_desc, full_desc, adult_price, child_price, duration_days, 
+         category_id, policy, image_url, is_active, default_seats)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([
-            $data["code"],
-            $data["title"],
-            $data["short_desc"],
-            $data["full_desc"],
-            $data["adult_price"],   // thêm
-            $data["child_price"],   // thêm
-            $data["duration_days"],
-            $data["category_id"],
-            $data["policy"],
-            $data["image_url"],
-            $data["is_active"]
+        $stmt->execute([
+            $_POST["code"],
+            $_POST["title"],
+            $_POST["short_desc"],
+            $_POST["full_desc"],
+            $_POST["adult_price"],
+            $_POST["child_price"],
+            $_POST["duration_days"],
+            $_POST["category_id"],
+            $_POST["policy"],
+            $imageName,
+            $_POST["is_active"],
+            $_POST["default_seats"] ?? 30  // ✅ Thêm dòng này
         ]);
+
+        header("Location: index.php?act=admin-tour");
+        exit;
     }
 
 
@@ -161,9 +174,10 @@ class TourModel
     public function update($data)
     {
         $sql = "UPDATE tours SET 
-            code=?, title=?, short_desc=?, full_desc=?, adult_price=?, child_price=?, duration_days=?, 
-            category_id=?, policy=?, image_url=?, is_active=? 
-            WHERE id=?";
+        code=?, title=?, short_desc=?, full_desc=?, 
+        adult_price=?, child_price=?, duration_days=?, 
+        category_id=?, policy=?, image_url=?, is_active=?, default_seats=?
+        WHERE id=?";
 
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([
@@ -178,6 +192,7 @@ class TourModel
             $data["policy"],
             $data["image_url"],
             $data["is_active"],
+            $data["default_seats"] ?? 30,  // ✅ Thêm dòng này
             $data["id"]
         ]);
     }
