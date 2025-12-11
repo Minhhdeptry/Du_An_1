@@ -461,8 +461,11 @@ class StaffScheduleController
             exit;
         }
 
-        // Lấy dữ liệu thống kê
-        $performance = $this->getPerformanceData($staff_id);
+        // ✅ TỰ ĐỘNG HOÀN THÀNH TOUR ĐÃ KẾT THÚC
+        $this->historyModel->autoCompleteFinishedTours();
+
+        // ✅ LẤY DỮ LIỆU THỐNG KÊ (CHỈ TOUR ĐÃ HOÀN THÀNH)
+        $performance = $this->historyModel->getPerformanceData($staff_id);
         $history = $this->historyModel->getStaffHistory($staff_id, 20);
         $upcoming = $this->historyModel->getUpcomingTours($staff_id, 5);
 
