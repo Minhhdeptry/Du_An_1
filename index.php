@@ -108,6 +108,7 @@ match ($act) {
     
   // Phân công HDV cho tour
     'admin-staff-assign-form' => (new StaffScheduleController())->assignForm($currentAct),
+    'admin-staff-assign-performance' => (new StaffScheduleController())->performance($currentAct),
     'admin-staff-assign-store' => (new StaffScheduleController())->assignStore(),
     'admin-staff-remove-assignment' => (new StaffScheduleController())->removeAssignment(),
     'admin-staff-remove-guide' => (new StaffScheduleController())->removeGuide(),
