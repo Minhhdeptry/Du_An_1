@@ -14,6 +14,8 @@ class TourScheduleModel
         }
 
         $this->pdo = $pdo;
+
+        $this->autoUpdateScheduleStatus();
     }
 
     // Lấy tất cả lịch, kèm tour + danh mục
@@ -35,8 +37,52 @@ class TourScheduleModel
         return $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Tìm kiếm lịch theo tour, mã tour, ngày đi/về, danh mục
-    // Thay thế method searchByKeyword trong models/admin/TourScheduleModel.php
+    public function autoUpdateScheduleStatus()
+    {
+        try {
+            $today = date('Y-m-d');
+
+            // ✅ CASE 1: Tour quá lịch + KHÔNG có booking → CLOSED
+            $sql1 = "UPDATE tour_schedule ts
+                     SET ts.status = 'CLOSED'
+                     WHERE ts.return_date < ?
+                       AND ts.status IN ('OPEN', 'CLOSED')
+                       AND NOT EXISTS (
+                           SELECT 1 FROM bookings b 
+                           WHERE b.tour_schedule_id = ts.id 
+                           AND b.status NOT IN ('CANCELED')
+                       )";
+            $stmt1 = $this->pdo->prepare($sql1);
+            $stmt1->execute([$today]);
+
+            // ✅ CASE 2: Tour quá lịch + CÓ booking → FINISHED
+            $sql2 = "UPDATE tour_schedule ts
+                     SET ts.status = 'FINISHED'
+                     WHERE ts.return_date < ?
+                       AND ts.status IN ('OPEN', 'CLOSED')
+                       AND EXISTS (
+                           SELECT 1 FROM bookings b 
+                           WHERE b.tour_schedule_id = ts.id 
+                           AND b.status NOT IN ('CANCELED')
+                       )";
+            $stmt2 = $this->pdo->prepare($sql2);
+            $stmt2->execute([$today]);
+
+            // ✅ CASE 3: Tour chưa đến lịch → OPEN (nếu đang là CLOSED)
+            // Chỉ áp dụng cho tour đã đóng do hết hạn, không ảnh hưởng CANCELED
+            $sql3 = "UPDATE tour_schedule
+                     SET status = 'OPEN'
+                     WHERE depart_date >= ?
+                       AND status = 'CLOSED'";
+            $stmt3 = $this->pdo->prepare($sql3);
+            $stmt3->execute([$today]);
+
+
+        } catch (PDOException $e) {
+            error_log("AutoUpdateScheduleStatus Error: " . $e->getMessage());
+        }
+    }
+
 
     public function searchByKeyword($keyword)
     {
