@@ -60,7 +60,7 @@
                             <td><?= date('d/m/Y', strtotime($s['depart_date'])) ?></td>
                             <td><?= date('d/m/Y', strtotime($s['return_date'])) ?></td>
                             <td>
-                                <?php 
+                                <?php
                                 $tourType = $s['tour_type'] ?? 'REGULAR';
                                 $isOnDemand = ($tourType === 'ON_DEMAND' || $tourType === 'Tour theo yêu cầu' || $s['seats_total'] == 0);
                                 ?>
@@ -142,10 +142,23 @@
                                     </a>
 
                                     <!-- Phân công HDV -->
-                                    <a href="index.php?act=admin-staff-assign-form&schedule_id=<?= $s['id'] ?>"
-                                        class="btn btn-sm btn-info" title="Phân công HDV">
-                                        <i class="bi bi-person-plus"></i>
-                                    </a>
+                                    <?php $bookingCount = $s['booking_count']; ?>
+
+                                    <?php if ($bookingCount > 0): ?>
+                                        <a href="index.php?act=admin-staff-assign-form&schedule_id=<?= $s['id'] ?>"
+                                            class="btn btn-sm btn-info" title="Phân công HDV (<?= $bookingCount ?> booking)">
+                                            <i class="bi bi-person-plus"></i>
+                                            <span class="badge bg-success ms-1"><?= $bookingCount ?></span>
+                                        </a>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-sm btn-outline-warning"
+                                            onclick="confirmAssignWithoutBooking(<?= $s['id'] ?>)"
+                                            title="⚠️ Lịch này chưa có booking">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                            <span class="badge bg-danger ms-1">0</span>
+                                        </button>
+                                    <?php endif; ?>
+
                                 </div>
                             </td>
                         </tr>
@@ -156,4 +169,26 @@
     </div>
 </div>
 
+<!-- ✅ THÊM JAVASCRIPT XỬ LÝ CONFIRM -->
+<script>
+    function confirmAssignWithoutBooking(scheduleId) {
+        const userConfirmed = confirm(
+            '⚠️ CẢNH BÁO: LỊCH CHƯA CÓ BOOKING\n\n' +
+            '📌 Lịch tour này hiện chưa có booking nào!\n\n' +
+            '❓ Bạn có chắc muốn phân công HDV ngay bây giờ không?\n\n' +
+            '💡 Khuyến nghị:\n' +
+            '   • Nên đợi có booking trước khi phân công\n' +
+            '   • Tối ưu nguồn lực HDV\n' +
+            '   • Tránh phân công rồi phải hủy/thay đổi\n\n' +
+            'Nhấn OK để tiếp tục phân công (không khuyến nghị)'
+        );
+
+        if (userConfirmed) {
+            // ✅ Redirect với force=1 flag
+            window.location.href = 'index.php?act=admin-staff-assign-form&schedule_id=' + scheduleId + '&force=1';
+        }
+    }
+</script>
+
+<!-- Bootstrap Icons (nếu chưa có) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">

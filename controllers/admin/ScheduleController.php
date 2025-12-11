@@ -23,9 +23,14 @@ class ScheduleController
             ? $this->model->searchByKeyword($keyword)
             : $this->model->getAll();
 
+        foreach ($schedules as &$s) {
+            $s['booking_count'] = $this->model->getBookingCount($s['id']);
+        }
+
         $view = "./views/admin/Schedule/index.php";
         include "./views/layout/adminLayout.php";
     }
+
 
     public function create($act)
     {
