@@ -8,6 +8,25 @@
     <h2>👥 Phân công HDV - <?= htmlspecialchars($schedule['tour_title']) ?></h2>
     <p class="text-muted">Khởi hành: <?= date('d/m/Y', strtotime($schedule['depart_date'])) ?></p>
 
+    <!-- ✅ HIỂN THỊ THÔNG BÁO -->
+    <?php if (isset($_SESSION['success'])): ?>
+        <?= $_SESSION['success'] ?>
+        <?php unset($_SESSION['success']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['warning'])): ?>
+        <?= $_SESSION['warning'] ?>
+        <?php unset($_SESSION['warning']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <?= $_SESSION['error'] ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
     <form action="index.php?act=admin-staff-assign-store" method="POST" class="card p-4 mt-3">
         <input type="hidden" name="tour_schedule_id" value="<?= $schedule['id'] ?>">
 

@@ -189,4 +189,17 @@ class TourScheduleModel
         $count = $stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0;
         return $count > 0;
     }
+
+    public function getBookingCount($schedule_id)
+    {
+        $stmt = $this->pdo->prepare("
+        SELECT COUNT(*) as booking_count
+        FROM bookings
+        WHERE tour_schedule_id = ?
+          AND status NOT IN ('CANCELED')
+    ");
+        $stmt->execute([$schedule_id]);
+        return (int) $stmt->fetchColumn();
+    }
+
 }
