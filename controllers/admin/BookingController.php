@@ -47,24 +47,25 @@ class BookingController
     }
 
     /** ------------------------
-     *  ✅ FIX: Form tạo booking - Lấy tours + adult_price, child_price
+     * Form tạo booking theo schedule
      */
     public function createForm(string $act): void
     {
-        // ✅ Lấy danh sách TOUR với GIÁ
-        $tours = $this->getToursList();
+        // Lấy danh sách lịch mở (OPEN)
+        $schedules = $this->bookingModel->getOpenSchedules();
 
-        if (empty($tours)) {
-            $_SESSION['error'] = "⚠️ Chưa có tour nào trong hệ thống!";
+        if (empty($schedules)) {
+            $_SESSION['error'] = "⚠️ Chưa có lịch tour nào đang mở!";
             header("Location: index.php?act=admin-tour");
             exit;
         }
 
-        $pageTitle = "Tạo Booking (Tour theo yêu cầu)";
+        $pageTitle = "Tạo Booking theo lịch khởi hành";
         $currentAct = $act;
         $view = "views/admin/Booking/create.php";
         include "./views/layout/adminLayout.php";
     }
+
 
     /** ------------------------
      *  ✅ FIX: Helper - Lấy tours kèm giá adult_price, child_price
@@ -183,15 +184,10 @@ class BookingController
             exit;
         }
 
-        // ✅ Kiểm tra xem có phải custom request không
-        if (empty($booking['is_custom_request'])) {
-            $_SESSION['error'] = "⚠️ Chỉ được sửa booking cho tour theo yêu cầu!";
-            header("Location: index.php?act=admin-booking");
-            exit;
-        }
+        // ✅ Lấy danh sách lịch tour mở (OPEN) cho dropdown chọn schedule
+        $schedules = $this->bookingModel->getOpenSchedules();
 
-        // ✅ Lấy dữ liệu liên quan
-        $schedules = $this->bookingModel->getSchedules();
+        // ✅ Lấy items, lịch sử trạng thái, trạng thái text
         $items = $this->itemModel->getItemsByBooking($id);
         $statusHistory = $this->bookingModel->getStatusHistory($id);
         $statusText = BookingModel::$statusLabels;
@@ -202,6 +198,7 @@ class BookingController
         include "./views/layout/adminLayout.php";
     }
 
+
     /** ------------------------
      *  Xử lý cập nhật booking
      */
@@ -211,7 +208,7 @@ class BookingController
         $author_id = $_SESSION['user_id'] ?? null;
 
         $data = $_POST;
-    
+
         $res = $this->bookingModel->update($id, $data, $author_id);
 
         if ($res['ok'] ?? false) {
@@ -250,7 +247,7 @@ class BookingController
     }
 
     /** ------------------------
-     *  Xác nhận booking (PENDING → CONFIRMED)
+     *  Xác nhận booking (PENDING → CONFIRMED) 
      */
     public function confirm(): void
     {

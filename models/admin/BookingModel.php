@@ -675,4 +675,19 @@ class BookingModel
 
         return $errors;
     }
+
+    public function getOpenSchedules(): array
+    {
+        $sql = "SELECT ts.id, ts.depart_date, ts.seats_available, ts.price_adult, ts.price_children,
+                   t.title AS tour_title, t.duration_days, c.name AS category_name
+            FROM tour_schedule ts
+            JOIN tours t ON t.id = ts.tour_id
+            LEFT JOIN tour_category c ON c.id = t.category_id
+            WHERE ts.status = 'OPEN'
+            ORDER BY ts.depart_date ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
 }

@@ -48,21 +48,31 @@ unset($_SESSION['old_data']);
                 <!-- Mode 1: Chọn tour có sẵn -->
                 <div id="existingTourSection">
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Tour có sẵn <span class="text-danger">*</span></label>
-                        <select name="tour_id" id="tour_id" class="form-select">
-                            <option value="">-- Chọn tour --</option>
-                            <?php foreach ($tours as $t): ?>
-                                <option value="<?= $t['id'] ?>"
-                                    data-duration="<?= $t['duration_days'] ?>"
-                                    data-adult-price="<?= $t['adult_price'] ?>"
-                                    data-child-price="<?= $t['child_price'] ?>"
-                                    <?= ($old['tour_id'] ?? '') == $t['id'] ? 'selected' : '' ?>>
-                                    [<?= htmlspecialchars($t['code']) ?>] <?= htmlspecialchars($t['title']) ?>
-                                    (<?= $t['duration_days'] ?> ngày - <?= htmlspecialchars($t['category_name'] ?? 'N/A') ?>)
+                        <label class="form-label fw-bold">Chọn lịch tour <span class="text-danger">*</span></label>
+                        <select name="tour_schedule_id" id="tour_schedule" class="form-select" required>
+                            <option value="">-- Chọn lịch tour --</option>
+                            <?php foreach ($schedules as $sc): ?>
+                                <?php
+                                $tourTitle = htmlspecialchars($sc['tour_title'] ?? 'Tên tour chưa có');
+                                $category = htmlspecialchars($sc['category_name'] ?? 'Tour');
+                                $departDate = isset($sc['depart_date']) ? date('d/m/Y', strtotime($sc['depart_date'])) : '';
+                                $duration = (int) ($sc['duration_days'] ?? 0);
+                                $priceAdult = (float) ($sc['price_adult'] ?? 0);
+                                $priceChildren = (float) ($sc['price_children'] ?? 0);
+                                ?>
+                                <option value="<?= $sc['id'] ?>" 
+                                    data-duration="<?= $duration ?>"
+                                    data-price-adult="<?= $priceAdult ?>"
+                                    data-price-children="<?= $priceChildren ?>"
+                                    <?= ($_SESSION['old_data']['tour_schedule_id'] ?? '') == $sc['id'] ? 'selected' : '' ?>>
+                                    [<?= $category ?>] <?= $tourTitle ?> (<?= $departDate ?> - <?= $duration ?> ngày)
+                                    - <?= $priceAdult ?> VNĐ/người lớn, <?= $priceChildren ?> VNĐ/trẻ em
                                 </option>
+
                             <?php endforeach; ?>
                         </select>
                     </div>
+
                 </div>
 
                 <!-- Mode 2: Nhập tour mới -->
@@ -233,7 +243,7 @@ let itemIndex = 0;
 function switchMode(mode) {
     const existingSection = document.getElementById('existingTourSection');
     const customSection = document.getElementById('customTourSection');
-    const tourSelect = document.getElementById('tour_id');
+    const tourSelect = document.getElementById('tour_schedule'); // sửa id
     const customInput = document.getElementById('custom_tour_name');
     
     if (mode === 'existing') {
@@ -241,43 +251,42 @@ function switchMode(mode) {
         customSection.style.display = 'none';
         tourSelect.required = true;
         customInput.required = false;
-        customInput.value = ''; // Clear custom input
+        customInput.value = '';
     } else {
         existingSection.style.display = 'none';
         customSection.style.display = 'block';
         tourSelect.required = false;
         customInput.required = true;
-        tourSelect.value = ''; // Clear select
+        tourSelect.value = '';
     }
 }
 
 // Auto-fill giá khi chọn tour có sẵn
-document.getElementById('tour_id').addEventListener('change', function() {
+document.getElementById('tour_schedule').addEventListener('change', function() {
     const selected = this.selectedOptions[0];
     if (selected && selected.value) {
         const duration = parseInt(selected.dataset.duration || 0);
-        const adultPrice = parseFloat(selected.dataset.adultPrice || 0);
-        const childPrice = parseFloat(selected.dataset.childPrice || 0);
+        const adultPrice = parseFloat(selected.dataset.priceAdult || 0);
+        const childPrice = parseFloat(selected.dataset.priceChildren || 0);
         
-        // Fill giá
         document.getElementById('price_adult').value = adultPrice;
         document.getElementById('price_children').value = childPrice;
-        
-        // Auto calculate return date
+
         const departDate = document.getElementById('depart_date').value;
         if (departDate && duration > 0) {
             const returnDate = new Date(departDate);
             returnDate.setDate(returnDate.getDate() + duration);
             document.getElementById('return_date').value = returnDate.toISOString().split('T')[0];
         }
-        
+
         updateTotals();
     }
 });
 
+
 // Auto calculate return date
 document.getElementById('depart_date').addEventListener('change', function() {
-    const tourSelect = document.getElementById('tour_id');
+    const tourSelect = document.getElementById('tour_schedule');
     const selected = tourSelect.selectedOptions[0];
     if (selected && selected.value) {
         const duration = parseInt(selected.dataset.duration || 0);

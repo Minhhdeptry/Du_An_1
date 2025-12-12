@@ -21,13 +21,25 @@ class TourController
         $currentAct = $act;
 
         $keyword = trim($_GET['keyword'] ?? '');
-        $tours = $keyword !== ''
-            ? $this->model->searchByKeywordWithStatus($keyword)
-            : $this->model->getAllWithCategoryStatus(); // join category để hiển thị tên danh mục
+        $category_id = $_GET['category_id'] ?? '';
+
+        if ($keyword !== '' && $category_id !== '') {
+            $tours = $this->model->searchByKeywordAndCategory($keyword, $category_id);
+        } elseif ($keyword !== '') {
+            $tours = $this->model->searchByKeywordWithStatus($keyword);
+        } elseif ($category_id !== '') {
+            $tours = $this->model->filterByCategory($category_id);
+        } else {
+            $tours = $this->model->getAllWithCategoryStatus();
+        }
+
+        // ✅ Load danh mục cho form lọc
+        $categories = $this->pdo->query("SELECT id, name FROM tour_category WHERE is_active = 1")->fetchAll();
 
         $view = "./views/admin/Tours/index.php";
         include "./views/layout/adminLayout.php";
     }
+
 
     public function create($act)
     {
@@ -101,8 +113,9 @@ class TourController
         $sql = "UPDATE tours SET 
             code=?, title=?, short_desc=?, full_desc=?, 
             adult_price=?, child_price=?, duration_days=?, 
-            category_id=?, policy=?, image_url=?, is_active=?
+            category_id=?, policy=?, image_url=?, is_active=?, default_seats=?
             WHERE id=?";
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             $_POST["code"],
@@ -116,8 +129,10 @@ class TourController
             $_POST["policy"],
             $imageName,
             $_POST["is_active"],
+            $_POST["default_seats"] ?? 30,
             $id
         ]);
+
 
         header("Location: index.php?act=admin-tour");
         exit;
@@ -131,10 +146,6 @@ class TourController
         header("Location: index.php?act=admin-tour");
         exit;
     }
-
-    // Thêm method này vào controllers/admin/TourController.php
-
-    // Thêm method này vào controllers/admin/TourController.php
 
     public function detail($act)
     {
