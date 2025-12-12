@@ -22,7 +22,7 @@ require_once './controllers/admin/ScheduleController.php';
 require_once './controllers/admin/StaffController.php';
 require_once './controllers/admin/UserController.php';
 require_once './controllers/admin/PaymentController.php';
-require_once './controllers/admin/ReportController.php';
+require_once './controllers/admin/TourReportController.php';
 require_once './controllers/admin/ItineraryController.php';
 
 require_once './controllers/admin/StaffScheduleController.php';
@@ -166,7 +166,7 @@ match ($act) {
 
 
   // ================= REPORT ===================
-  'admin-report' => (new ReportController())->index($currentAct),
+  'admin-report' => (new TourReportController())->index($currentAct),
 
   // ================= ITINERARY (Lịch trình Tour) ===================
   'admin-itinerary-list' => (new ItineraryController())->selectTour($currentAct), 

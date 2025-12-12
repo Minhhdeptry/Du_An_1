@@ -1,124 +1,123 @@
 <?php
-// ===================================
-// controllers/admin/TourReportController.php
-// ===================================
-
-require_once "./models/admin/TourReportModel.php";
-require_once "./models/admin/TourScheduleModel.php";
-require_once "./models/admin/BookingCheckInModel.php";
-
 class TourReportController
 {
-    private $reportModel;
-    private $scheduleModel;
-    private $checkInModel;
+    private $model;
 
     public function __construct()
     {
-        $this->reportModel = new TourReportModel();
-        $this->scheduleModel = new TourScheduleModel();
-        $this->checkInModel = new BookingCheckInModel();
+        require_once "./models/admin/TourReportModel.php";
+        $this->model = new TourReportModel();
     }
 
     /**
-     * ✅ DANH SÁCH TOUR CẦN LÀM BÁO CÁO
+     * Trang tổng quan báo cáo năm
      */
-    public function listPendingReports($act)
+    public function index($act)
     {
-        $tours = $this->scheduleModel->getCompletedToursNeedReport();
-        
-        $pageTitle = "Tour cần làm báo cáo";
+        $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
+
+        // Lấy dữ liệu báo cáo tổng hợp theo tour
+        $customerData     = $this->model->getTotalCustomersByTour($year);
+        $revenueData      = $this->model->getRevenueByTour($year);
+
+        // ⭐ LẤY DỮ LIỆU KHÁCH THEO THÁNG
+        $customerByMonth  = $this->model->getTotalCustomersByMonth($year);
+
+        // ⭐ LẤY DỮ LIỆU DOANH THU THEO THÁNG
+        $revenueByMonth   = $this->model->getRevenueByMonth($year);
+
         $currentAct = $act;
-        $view = "./views/admin/TourReport/pending.php";
+        $view = "./views/admin/Report/index.php";
         include "./views/layout/adminLayout.php";
     }
 
     /**
-     * ✅ FORM TẠO BÁO CÁO SAU TOUR
+     * Báo cáo theo tháng
      */
-    public function createReport($act)
+    public function monthly($act)
     {
-        $schedule_id = $_GET['schedule_id'] ?? null;
-        
-        if (!$schedule_id) {
-            $_SESSION['error'] = "❌ Tour không hợp lệ!";
-            header("Location: index.php?act=admin-tour-reports");
-            exit;
+        $month = isset($_GET['month']) ? intval($_GET['month']) : date('m');
+        $year  = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
+
+        $from_date = "$year-$month-01";
+        $to_date   = date("Y-m-t", strtotime($from_date));
+
+        $reportList = $this->model->getAll($from_date, $to_date);
+
+        $currentAct = $act;
+        $view = "./views/admin/Report/monthly.php";
+        include "./views/layout/adminLayout.php";
+    }
+
+    /**
+     * Danh sách và nhập báo cáo cho từng schedule
+     */
+    public function schedule($act)
+    {
+        if (!isset($_GET['id'])) {
+            die("Thiếu schedule_id");
         }
 
-        $schedule = $this->scheduleModel->find($schedule_id);
-        $checkInStats = $this->checkInModel->getCheckInStatsBySchedule($schedule_id);
-        $existingReport = $this->reportModel->getBySchedule($schedule_id);
+        $schedule_id = intval($_GET['id']);
 
-        $pageTitle = "Báo cáo Tour - " . ($schedule['tour_title'] ?? '');
+        // Lấy báo cáo (nếu có)
+        $report = $this->model->getBySchedule($schedule_id);
+
         $currentAct = $act;
-        $view = "./views/admin/TourReport/form.php";
+        $view = "./views/admin/Report/schedule.php";
         include "./views/layout/adminLayout.php";
     }
 
     /**
-     * ✅ LƯU BÁO CÁO
+     * Lưu báo cáo từ form
      */
-    public function saveReport()
+    public function save()
     {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            die("Invalid request");
+        }
+
         $data = [
-            'schedule_id' => $_POST['schedule_id'] ?? null,
-            'actual_guests' => $_POST['actual_guests'] ?? 0,
-            'incidents' => $_POST['incidents'] ?? '',
-            'customer_feedback' => $_POST['customer_feedback'] ?? '',
-            'guide_notes' => $_POST['guide_notes'] ?? '',
-            'expenses_summary' => $_POST['expenses_summary'] ?? '',
-            'overall_rating' => $_POST['overall_rating'] ?? 5,
-            'created_by' => $_SESSION['user_id'] ?? null
+            'schedule_id'       => $_POST['schedule_id'] ?? null,
+            'actual_guests'     => $_POST['actual_guests'] ?? 0,
+            'incidents'         => $_POST['incidents'] ?? null,
+            'customer_feedback' => $_POST['customer_feedback'] ?? null,
+            'guide_notes'       => $_POST['guide_notes'] ?? null,
+            'expenses_summary'  => $_POST['expenses_summary'] ?? null,
+            'overall_rating'    => $_POST['overall_rating'] ?? null,
+            'created_by'        => $_SESSION['user']['id'] ?? 1
         ];
 
-        $result = $this->reportModel->save($data);
+        $result = $this->model->save($data);
 
         if ($result['ok']) {
-            $_SESSION['success'] = "✅ Lưu báo cáo thành công!";
-            header("Location: index.php?act=admin-tour-report-view&id=" . $result['id']);
-        } else {
-            $_SESSION['error'] = "❌ " . implode(", ", $result['errors']);
-            header("Location: index.php?act=admin-tour-report-create&schedule_id=" . $data['schedule_id']);
-        }
-        exit;
-    }
-
-    /**
-     * ✅ XEM CHI TIẾT BÁO CÁO
-     */
-    public function viewReport($act)
-    {
-        $id = $_GET['id'] ?? null;
-        
-        if (!$id) {
-            $_SESSION['error'] = "❌ Báo cáo không tồn tại!";
-            header("Location: index.php?act=admin-tour-reports");
+            header("Location: index.php?module=report&act=schedule&id=" . $data['schedule_id']);
             exit;
+        } else {
+            echo "<pre>";
+            print_r($result['errors']);
+            echo "</pre>";
         }
-
-        $report = $this->reportModel->find($id);
-        
-        $pageTitle = "Chi tiết báo cáo Tour";
-        $currentAct = $act;
-        $view = "./views/admin/TourReport/view.php";
-        include "./views/layout/adminLayout.php";
     }
 
     /**
-     * ✅ DANH SÁCH TẤT CẢ BÁO CÁO
+     * Xem chi tiết báo cáo
      */
-    public function listAll($act)
+    public function detail($act)
     {
-        $from_date = $_GET['from_date'] ?? date('Y-m-d', strtotime('-30 days'));
-        $to_date = $_GET['to_date'] ?? date('Y-m-d');
-        $guide_id = $_GET['guide_id'] ?? null;
+        if (!isset($_GET['id'])) {
+            die("Thiếu id báo cáo");
+        }
 
-        $reports = $this->reportModel->getAll($from_date, $to_date, $guide_id);
+        $id = intval($_GET['id']);
+        $report = $this->model->find($id);
 
-        $pageTitle = "Tất cả báo cáo Tour";
+        if (!$report) {
+            die("Không tìm thấy báo cáo");
+        }
+
         $currentAct = $act;
-        $view = "./views/admin/TourReport/list.php";
+        $view = "./views/admin/Report/detail.php";
         include "./views/layout/adminLayout.php";
     }
 }
