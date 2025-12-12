@@ -27,7 +27,7 @@ class TourModel
     {
         $sql = "SELECT t.*, c.name AS category_name
             FROM tours t
-            LEFT JOIN tour_category c ON t.category_id = c.id
+            LEFT JOIN tour_category c ON t.category_id = c.id 
             WHERE t.title LIKE ?
                OR t.code LIKE ?
             ORDER BY t.id DESC";
@@ -260,11 +260,65 @@ class TourModel
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-
-
-    public function delete($id)
+    public function filterByCategory($category_id)
     {
-        $stmt = $this->pdo->prepare("DELETE FROM tours WHERE id=?");
-        return $stmt->execute([$id]);
+        $sql = "SELECT t.*, c.name AS category_name
+            FROM tours t
+            LEFT JOIN tour_category c ON t.category_id = c.id
+            WHERE t.category_id = ?
+            ORDER BY t.code ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$category_id]);
+        $tours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Thêm display_status
+        foreach ($tours as &$tour) {
+            $stmt2 = $this->pdo->prepare("SELECT status FROM tour_schedule WHERE tour_id = ?");
+            $stmt2->execute([$tour['id']]);
+            $schedules = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+            $tour['display_status'] = 'Ẩn';
+            foreach ($schedules as $s) {
+                if ($s['status'] === 'OPEN') {
+                    $tour['display_status'] = 'Hiển thị';
+                    break;
+                }
+            }
+        }
+
+        return $tours;
     }
+
+
+    public function searchByKeywordAndCategory($keyword, $category_id)
+    {
+        $sql = "SELECT t.*, c.name AS category_name
+            FROM tours t
+            LEFT JOIN tour_category c ON t.category_id = c.id
+            WHERE (t.title LIKE ? OR t.code LIKE ?)
+              AND t.category_id = ?
+            ORDER BY t.id DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $kw = "%{$keyword}%";
+        $stmt->execute([$kw, $kw, $category_id]);
+        $tours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // --- Thêm display_status ---
+        foreach ($tours as &$tour) {
+            $stmt2 = $this->pdo->prepare("SELECT status FROM tour_schedule WHERE tour_id = ?");
+            $stmt2->execute([$tour['id']]);
+            $schedules = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+            $tour['display_status'] = 'Ẩn';
+            foreach ($schedules as $s) {
+                if ($s['status'] === 'OPEN') {
+                    $tour['display_status'] = 'Hiển thị';
+                    break;
+                }
+            }
+        }
+
+        return $tours;
+    }
+
 }
