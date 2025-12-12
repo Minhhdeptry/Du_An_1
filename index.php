@@ -24,6 +24,7 @@ require_once './controllers/admin/UserController.php';
 require_once './controllers/admin/PaymentController.php';
 require_once './controllers/admin/TourReportController.php';
 require_once './controllers/admin/ItineraryController.php';
+require_once './controllers/admin/BookingCustomerController.php';
 
 require_once './controllers/admin/StaffScheduleController.php';
 require_once './controllers/admin/StaffCertificateController.php';
@@ -85,7 +86,16 @@ match ($act) {
   'admin-booking-detail' => (new BookingController())->detail($currentAct),
   // Xóa item dùng deleteItem()
   'admin-booking-item-delete' => (new BookingController())->deleteItem(),
-
+  
+  // ================= BOOKING-CUSTOMER ADMIN ===================
+  'admin-booking-customer' => (new BookingCustomerController())->index($currentAct),
+  'admin-booking-customer-create' => (new BookingCustomerController())->create($currentAct),
+  'admin-booking-customer-edit' => (new BookingCustomerController())->edit($currentAct),
+  'admin-booking-customer-store' => (new BookingCustomerController())->store(),
+  'admin-booking-customer-update' => (new BookingCustomerController())->update(),
+  'admin-booking-customer-delete' => (new BookingCustomerController())->delete(),
+  'admin-booking-customer-checkin' => (new BookingCustomerController())->checkin(),
+  'admin-booking-customer-undo-checkin' => (new BookingCustomerController())->undoCheckIn(),
 
   // ================= CATEGORY ADMIN ===================
   'admin-category' => (new CategoryController())->index($currentAct),
