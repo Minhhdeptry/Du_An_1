@@ -1,5 +1,5 @@
 <?php
-class ReportModel
+class TourReportModel
 {
     private $pdo;
 
