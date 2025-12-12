@@ -10,110 +10,261 @@ class TourReportModel
     }
 
     /**
-     * Tổng khách theo từng tour mỗi tháng
-     * Trả về mảng: ['Tour A' => [1=>10,2=>20,...,12=>0], ...]
+     * Lấy báo cáo theo schedule
      */
-    public function getTotalCustomersByTour($year = null)
+    public function getBySchedule($schedule_id)
     {
-        // 1. Lấy danh sách tất cả tour
-        $stmt = $this->pdo->query("SELECT id, title FROM tours ORDER BY title ASC");
-        $tours = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Khởi tạo mảng 12 tháng = 0 cho mỗi tour
-        $result = [];
-        foreach ($tours as $tour) {
-            $result[$tour['title']] = array_fill(1, 12, 0);
-        }
-
-        // 2. Lấy dữ liệu bookings đã xác nhận
-        $params = [];
-        $sql = "SELECT 
-                    t.title AS tour_name,
-                    MONTH(b.created_at) AS month,
-                    SUM(b.adults + b.children) AS total_customers
-                FROM bookings b
-                JOIN tour_schedule ts ON ts.id = b.tour_schedule_id
-                JOIN tours t ON t.id = ts.tour_id
-                WHERE b.status IN ('CONFIRMED','PAID','COMPLETED')";
-
-        if ($year) {
-            $sql .= " AND YEAR(b.created_at) = ?";
-            $params[] = $year;
-        }
-
-        $sql .= " GROUP BY t.title, month ORDER BY t.title, month";
+        $sql = "SELECT tr.*, 
+                       u.full_name as created_by_name,
+                       ts.depart_date,
+                       t.title as tour_name,
+                       tg.full_name as guide_name
+                FROM tour_reports tr
+                LEFT JOIN users u ON tr.created_by = u.id
+                JOIN tour_schedule ts ON tr.schedule_id = ts.id
+                JOIN tours t ON ts.tour_id = t.id
+                LEFT JOIN tour_guides tg ON ts.guide_id = tg.id
+                WHERE tr.schedule_id = ?";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // 3. Ghi dữ liệu vào mảng tour
-        foreach ($rows as $row) {
-            $tour = $row['tour_name'];
-            $month = intval($row['month']);
-            $total = intval($row['total_customers']);
-            $result[$tour][$month] = $total;
-        }
-
-        // Sắp xếp tháng tăng dần cho mỗi tour
-        foreach ($result as $tour => $months) {
-            ksort($result[$tour]);
-        }
-
-        return $result;
+        $stmt->execute([$schedule_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     /**
-     * Doanh thu theo từng tour mỗi tháng
-     * Trả về mảng: ['Tour A' => [1=>1000000,2=>2000000,...,12=>0], ...]
+     * Lưu báo cáo
      */
-    public function getRevenueByTour($year = null)
+    public function save($data)
     {
-        // 1. Lấy danh sách tất cả tour
-        $stmt = $this->pdo->query("SELECT id, title FROM tours ORDER BY title ASC");
-        $tours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $errors = [];
 
-        $result = [];
-        foreach ($tours as $tour) {
-            $result[$tour['title']] = array_fill(1, 12, 0);
+        // Validate
+        if (empty($data['schedule_id'])) {
+            $errors[] = "Tour schedule không hợp lệ";
+        }
+        if (empty($data['actual_guests']) || $data['actual_guests'] < 0) {
+            $errors[] = "Số khách thực tế không hợp lệ";
         }
 
-        // 2. Lấy dữ liệu doanh thu từ bookings đã thanh toán
-        $params = [];
-        $sql = "SELECT 
-                    t.title AS tour_name,
-                    MONTH(b.created_at) AS month,
-                    SUM(b.total_amount) AS revenue
-                FROM bookings b
-                JOIN tour_schedule ts ON ts.id = b.tour_schedule_id
-                JOIN tours t ON t.id = ts.tour_id
-                WHERE b.status IN ('PAID','COMPLETED')";
-
-        if ($year) {
-            $sql .= " AND YEAR(b.created_at) = ?";
-            $params[] = $year;
+        if (!empty($errors)) {
+            return ['ok' => false, 'errors' => $errors];
         }
 
-        $sql .= " GROUP BY t.title, month ORDER BY t.title, month";
+        try {
+            // Check nếu đã có báo cáo thì update, chưa thì insert
+            $existing = $this->getBySchedule($data['schedule_id']);
+
+            if ($existing) {
+                // Update
+                $sql = "UPDATE tour_reports SET
+                        actual_guests = ?,
+                        incidents = ?,
+                        customer_feedback = ?,
+                        guide_notes = ?,
+                        expenses_summary = ?,
+                        overall_rating = ?,
+                        updated_at = NOW()
+                        WHERE schedule_id = ?";
+
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([
+                    $data['actual_guests'],
+                    $data['incidents'],
+                    $data['customer_feedback'],
+                    $data['guide_notes'],
+                    $data['expenses_summary'],
+                    $data['overall_rating'],
+                    $data['schedule_id']
+                ]);
+
+                return ['ok' => true, 'id' => $existing['id']];
+
+            } else {
+                // Insert
+                $sql = "INSERT INTO tour_reports 
+                        (schedule_id, actual_guests, incidents, customer_feedback, 
+                         guide_notes, expenses_summary, overall_rating, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([
+                    $data['schedule_id'],
+                    $data['actual_guests'],
+                    $data['incidents'],
+                    $data['customer_feedback'],
+                    $data['guide_notes'],
+                    $data['expenses_summary'],
+                    $data['overall_rating'],
+                    $data['created_by']
+                ]);
+
+                return ['ok' => true, 'id' => $this->pdo->lastInsertId()];
+            }
+
+        } catch (\Exception $e) {
+            return ['ok' => false, 'errors' => [$e->getMessage()]];
+        }
+    }
+
+    /**
+     * Lấy chi tiết báo cáo
+     */
+    public function find($id)
+    {
+        $sql = "SELECT tr.*, 
+                       u.full_name as created_by_name,
+                       ts.depart_date,
+                       t.title as tour_name,
+                       tg.full_name as guide_name
+                FROM tour_reports tr
+                LEFT JOIN users u ON tr.created_by = u.id
+                JOIN tour_schedule ts ON tr.schedule_id = ts.id
+                JOIN tours t ON ts.tour_id = t.id
+                LEFT JOIN tour_guides tg ON ts.guide_id = tg.id
+                WHERE tr.id = ?";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Lấy tất cả báo cáo (có filter)
+     */
+    public function getAll($from_date, $to_date, $guide_id = null)
+    {
+        $sql = "SELECT tr.*, 
+                       ts.depart_date,
+                       t.title as tour_name,
+                       tg.full_name as guide_name
+                FROM tour_reports tr
+                JOIN tour_schedule ts ON tr.schedule_id = ts.id
+                JOIN tours t ON ts.tour_id = t.id
+                LEFT JOIN tour_guides tg ON ts.guide_id = tg.id
+                WHERE ts.depart_date BETWEEN ? AND ?";
+
+        $params = [$from_date, $to_date];
+
+        if ($guide_id) {
+            $sql .= " AND ts.guide_id = ?";
+            $params[] = $guide_id;
+        }
+
+        $sql .= " ORDER BY ts.depart_date DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // 3. Ghi dữ liệu vào mảng tour
-        foreach ($rows as $row) {
-            $tour = $row['tour_name'];
-            $month = intval($row['month']);
-            $revenue = floatval($row['revenue']);
-            $result[$tour][$month] = $revenue;
-        }
-
-        // Sắp xếp tháng tăng dần cho mỗi tour
-        foreach ($result as $tour => $months) {
-            ksort($result[$tour]);
-        }
-
-        return $result;
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Tổng số khách theo từng tour trong 1 năm
+     */
+    public function getTotalCustomersByTour($year)
+    {
+        $sql = "
+        SELECT 
+            t.id,
+            t.title AS tour_name,
+            SUM(
+                CASE 
+                    WHEN b.total_people IS NOT NULL THEN b.total_people
+                    ELSE (b.adults + b.children)
+                END
+            ) AS total_customers
+        FROM tours t
+        JOIN tour_schedule ts ON ts.tour_id = t.id
+        JOIN bookings b ON b.tour_schedule_id = ts.id
+        WHERE YEAR(ts.depart_date) = ?
+          AND b.status NOT IN ('CANCELED')
+        GROUP BY t.id, t.title
+        ORDER BY total_customers DESC
+    ";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$year]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+
+    /**
+     * Doanh thu theo tour trong 1 năm
+     */
+    public function getRevenueByTour($year)
+    {
+        $sql = "
+        SELECT 
+            t.id,
+            t.title AS tour_name,
+            COALESCE(SUM(p.amount), 0) AS total_revenue
+        FROM tours t
+        JOIN tour_schedule ts ON ts.tour_id = t.id
+        JOIN bookings b ON b.tour_schedule_id = ts.id
+        JOIN payments p ON p.booking_id = b.id
+        WHERE YEAR(ts.depart_date) = ?
+          AND b.status NOT IN ('CANCELED')
+        GROUP BY t.id, t.title
+        ORDER BY total_revenue DESC
+    ";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$year]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Tổng số khách theo từng tháng trong 1 năm
+     */
+    public function getTotalCustomersByMonth($year)
+    {
+        $sql = "
+        SELECT 
+            MONTH(ts.depart_date) AS month,
+            SUM(
+                CASE 
+                    WHEN b.total_people IS NOT NULL THEN b.total_people
+                    ELSE (b.adults + b.children)
+                END
+            ) AS total_customers
+        FROM tour_schedule ts
+        JOIN bookings b ON b.tour_schedule_id = ts.id
+        WHERE YEAR(ts.depart_date) = ?
+          AND b.status NOT IN ('CANCELED')
+        GROUP BY MONTH(ts.depart_date)
+        ORDER BY month ASC
+    ";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$year]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+
+    /**
+     * Doanh thu theo từng tháng trong 1 năm
+     */
+    public function getRevenueByMonth($year)
+    {
+        $sql = "
+            SELECT 
+                MONTH(ts.depart_date) AS month,
+                COALESCE(SUM(p.amount), 0) AS total_revenue
+            FROM tour_schedule ts
+            JOIN bookings b ON b.tour_schedule_id = ts.id
+            JOIN payments p ON p.booking_id = b.id
+            WHERE YEAR(ts.depart_date) = ?
+              AND b.status NOT IN ('CANCELED')
+            GROUP BY MONTH(ts.depart_date)
+            ORDER BY month ASC
+        ";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$year]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+
+
 }
+
 ?>
