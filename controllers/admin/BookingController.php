@@ -49,6 +49,7 @@ class BookingController
     /** ------------------------
      * Form tạo booking theo schedule
      */
+
     public function createForm(string $act): void
     {
         // Lấy danh sách lịch mở (OPEN)
@@ -58,6 +59,20 @@ class BookingController
             $_SESSION['error'] = "⚠️ Chưa có lịch tour nào đang mở!";
             header("Location: index.php?act=admin-tour");
             exit;
+        }
+
+        // ✅ FIX: Thêm thông tin is_custom_request vào mỗi schedule
+        foreach ($schedules as &$schedule) {
+            // Kiểm tra xem tour này có phải là custom request không
+            $stmt = $this->bookingModel->getConnection()->prepare("
+            SELECT is_custom_request 
+            FROM tour_schedule 
+            WHERE id = ?
+        ");
+            $stmt->execute([$schedule['id']]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $schedule['is_custom_request'] = (int) ($result['is_custom_request'] ?? 0);
         }
 
         $pageTitle = "Tạo Booking theo lịch khởi hành";
