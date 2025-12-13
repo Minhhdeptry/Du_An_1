@@ -38,21 +38,21 @@ unset($_SESSION['old_data']);
                 <div class="mb-3">
                     <div class="btn-group w-100" role="group">
                         <input type="radio" class="btn-check" name="tour_mode" id="mode_existing" value="existing"
-                            <?= empty($booking['custom_tour_name']) ? 'checked' : '' ?> onclick="switchMode('existing')">
+                            <?= empty($booking['is_custom_request']) ? 'checked' : '' ?> onclick="switchMode('existing')">
                         <label class="btn btn-outline-primary" for="mode_existing">
                             <i class="bi bi-list-ul"></i> Chọn tour có sẵn
                         </label>
 
                         <input type="radio" class="btn-check" name="tour_mode" id="mode_custom" value="custom"
-                            <?= !empty($booking['custom_tour_name']) ? 'checked' : '' ?> onclick="switchMode('custom')">
+                            <?= !empty($booking['is_custom_request']) ? 'checked' : '' ?> onclick="switchMode('custom')">
                         <label class="btn btn-outline-success" for="mode_custom">
-                            <i class="bi bi-pencil-square"></i> Nhập tour mới
+                            <i class="bi bi-pencil-square"></i> Tour theo yêu cầu
                         </label>
                     </div>
                 </div>
 
                 <!-- Mode 1: Chọn tour có sẵn -->
-                <div id="existingTourSection" style="<?= empty($booking['custom_tour_name']) ? '' : 'display:none;' ?>">
+                <div id="existingTourSection" style="<?= empty($booking['is_custom_request']) ? '' : 'display:none;' ?>">
                     <div class="mb-3">
                         <label class="form-label fw-bold">Chọn lịch tour <span class="text-danger">*</span></label>
                         <select name="tour_schedule_id" id="tour_schedule" class="form-select">
@@ -66,27 +66,29 @@ unset($_SESSION['old_data']);
                                 $priceAdult = (float) ($sc['price_adult'] ?? 0);
                                 $priceChildren = (float) ($sc['price_children'] ?? 0);
                                 ?>
-                                <option value="<?= $sc['id'] ?>" data-duration="<?= $duration ?>"
-                                    data-price-adult="<?= $priceAdult ?>" data-price-children="<?= $priceChildren ?>"
+                                <option value="<?= $sc['id'] ?>" 
+                                    data-duration="<?= $duration ?>"
+                                    data-price-adult="<?= $priceAdult ?>" 
+                                    data-price-children="<?= $priceChildren ?>"
                                     <?= ($booking['tour_schedule_id'] ?? '') == $sc['id'] ? 'selected' : '' ?>>
                                     [<?= $category ?>] <?= $tourTitle ?> (<?= $departDate ?> - <?= $duration ?> ngày)
-                                    - <?= number_format($priceAdult) ?> VNĐ/người lớn, <?= number_format($priceChildren) ?>
-                                    VNĐ/trẻ em
+                                    - <?= number_format($priceAdult) ?> VNĐ/người lớn, <?= number_format($priceChildren) ?> VNĐ/trẻ em
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                 </div>
 
-                <!-- Mode 2: Nhập tour mới -->
-                <div id="customTourSection" style="<?= !empty($booking['custom_tour_name']) ? '' : 'display:none;' ?>">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Tên tour theo yêu cầu <span
-                                class="text-danger">*</span></label>
-                        <input type="text" name="custom_tour_name" id="custom_tour_name" class="form-control"
-                            placeholder="VD: Tour Sapa 3N2Đ - Đoàn riêng"
-                            value="<?= htmlspecialchars($booking['custom_tour_name'] ?? '') ?>">
+                <!-- Mode 2: Tour theo yêu cầu -->
+                <div id="customTourSection" style="<?= !empty($booking['is_custom_request']) ? '' : 'display:none;' ?>">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>Tour theo yêu cầu:</strong> <?= htmlspecialchars($booking['tour_name'] ?? 'N/A') ?>
                     </div>
+                    
+                    <!-- ✅ THÊM: Hidden field để giữ tour_schedule_id hiện tại -->
+                    <input type="hidden" name="tour_schedule_id" value="<?= $booking['tour_schedule_id'] ?>">
+                    <input type="hidden" name="is_custom_request" value="1">
                 </div>
 
                 <!-- Ngày đi/về -->
@@ -94,13 +96,31 @@ unset($_SESSION['old_data']);
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Ngày khởi hành <span class="text-danger">*</span></label>
                         <input type="date" name="depart_date" id="depart_date" class="form-control"
-                            value="<?= htmlspecialchars($booking['depart_date'] ?? '') ?>" min="<?= date('Y-m-d') ?>"
-                            required>
+                            value="<?= htmlspecialchars($booking['depart_date'] ?? '') ?>" 
+                            min="<?= date('Y-m-d') ?>" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Ngày về</label>
+                        <?php
+                        // ✅ Tính ngày về từ tour_schedule nếu không có
+                        $returnDate = '';
+                        if (!empty($booking['return_date'])) {
+                            $returnDate = $booking['return_date'];
+                        } elseif (!empty($booking['depart_date']) && !empty($booking['duration_days'])) {
+                            $departTimestamp = strtotime($booking['depart_date']);
+                            $duration = (int)$booking['duration_days'];
+                            $returnTimestamp = strtotime("+{$duration} days", $departTimestamp);
+                            $returnDate = date('Y-m-d', $returnTimestamp);
+                        }
+                        ?>
                         <input type="date" name="return_date" id="return_date" class="form-control"
-                            value="<?= htmlspecialchars($booking['return_date'] ?? '') ?>" min="<?= date('Y-m-d') ?>">
+                            value="<?= htmlspecialchars($returnDate) ?>" 
+                            min="<?= date('Y-m-d') ?>">
+                        <small class="text-muted">
+                            <?php if (empty($booking['return_date']) && !empty($returnDate)): ?>
+                                <i class="bi bi-info-circle"></i> Tự động tính từ ngày đi + <?= $booking['duration_days'] ?? 0 ?> ngày
+                            <?php endif; ?>
+                        </small>
                     </div>
                 </div>
             </div>
@@ -116,14 +136,14 @@ unset($_SESSION['old_data']);
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Giá người lớn (VNĐ) <span class="text-danger">*</span></label>
                         <input type="number" name="price_adult" id="price_adult" class="form-control"
-                            value="<?= htmlspecialchars($booking['price_adult'] ?? '0') ?>" min="0" step="1000"
-                            oninput="updateTotals()">
+                            value="<?= htmlspecialchars($booking['price_adult'] ?? '0') ?>" 
+                            min="0" step="1000" required oninput="updateTotals()">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Giá trẻ em (VNĐ)</label>
                         <input type="number" name="price_children" id="price_children" class="form-control"
-                            value="<?= htmlspecialchars($booking['price_children'] ?? '0') ?>" min="0" step="1000"
-                            oninput="updateTotals()">
+                            value="<?= htmlspecialchars($booking['price_children'] ?? '0') ?>" 
+                            min="0" step="1000" oninput="updateTotals()">
                     </div>
                 </div>
             </div>
@@ -149,7 +169,7 @@ unset($_SESSION['old_data']);
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Email</label>
                         <input type="email" name="contact_email" class="form-control"
-                            value="<?= htmlspecialchars($booking['contact_email']) ?>">
+                            value="<?= htmlspecialchars($booking['contact_email'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -157,7 +177,7 @@ unset($_SESSION['old_data']);
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Người lớn <span class="text-danger">*</span></label>
                         <input type="number" name="adults" id="adults" class="form-control"
-                            value="<?= $booking['adults'] ?>" min="0" oninput="updateTotals()">
+                            value="<?= $booking['adults'] ?>" min="0" required oninput="updateTotals()">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Trẻ em</label>
@@ -173,14 +193,125 @@ unset($_SESSION['old_data']);
             </div>
         </div>
 
+        <!-- ✅ BƯỚC 3.5: TRẠNG THÁI BOOKING -->
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">🚦 Trạng thái Booking</h5>
+            </div>
+            <div class="card-body">
+                <?php
+                // ✅ Kiểm tra xem có được sửa full info không
+                // Lưu ý: is_custom_request là của tour_schedule, không phải booking
+                $isCustom = !empty($booking['is_custom_request']) && $booking['is_custom_request'] == 1;
+                $isFinished = in_array($booking['status'], ['COMPLETED', 'CANCELED']);
+                $isPastDate = !empty($booking['depart_date']) && strtotime($booking['depart_date']) < strtotime('today');
+                $canEditFull = $isCustom || $isFinished || $isPastDate;
+                
+                // Debug (xóa sau khi test xong)
+                // echo "<!-- Debug: isCustom={$isCustom}, isFinished={$isFinished}, isPastDate={$isPastDate} -->";
+                ?>
+
+                <?php if (!$canEditFull): ?>
+                    <div class="alert alert-warning mb-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Lưu ý:</strong> Đây là booking <strong>tour thường đang hoạt động</strong>.<br>
+                        Bạn chỉ có thể sửa: <strong>Thông tin khách, Yêu cầu đặc biệt, Trạng thái</strong>.<br>
+                        <small>Không thể đổi: Số người, Lịch tour, Giá. Muốn thay đổi → Hủy và tạo mới.</small>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Chế độ sửa đầy đủ</strong> vì:
+                        <?php if ($isCustom): ?>
+                            Tour theo yêu cầu
+                        <?php elseif ($isFinished): ?>
+                            Booking đã kết thúc (điều chỉnh hậu kỳ)
+                        <?php elseif ($isPastDate): ?>
+                            Tour đã qua ngày khởi hành
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Trạng thái Booking</label>
+                        <select name="status" class="form-select form-select-lg" id="booking_status">
+                            <option value="PENDING" <?= $booking['status'] === 'PENDING' ? 'selected' : '' ?>>
+                                ⏳ Chờ xác nhận
+                            </option>
+                            <option value="CONFIRMED" <?= $booking['status'] === 'CONFIRMED' ? 'selected' : '' ?>>
+                                ✅ Đã xác nhận
+                            </option>
+                            <option value="DEPOSIT_PAID" <?= $booking['status'] === 'DEPOSIT_PAID' ? 'selected' : '' ?>>
+                                💵 Đã cọc
+                            </option>
+                            <option value="COMPLETED" <?= $booking['status'] === 'COMPLETED' ? 'selected' : '' ?>
+                                data-requires-full-payment="true">
+                                🎉 Hoàn tất
+                            </option>
+                            <option value="CANCELED" <?= $booking['status'] === 'CANCELED' ? 'selected' : '' ?>>
+                                ❌ Hủy
+                            </option>
+                        </select>
+                        
+                        <?php 
+                        $paymentStatus = $booking['payment_status'] ?? 'PENDING';
+                        if ($paymentStatus !== 'FULL_PAID'): 
+                        ?>
+                        <small class="text-danger d-none" id="completed_warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Cảnh báo:</strong> Chưa thanh toán đủ! Không thể chọn "Hoàn tất".
+                        </small>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Trạng thái Thanh toán</label>
+                        <div class="form-control form-select-lg bg-light" style="height: auto; padding: 0.75rem;">
+                            <?php
+                            $paymentStatusBadge = match ($paymentStatus) {
+                                'FULL_PAID' => '<span class="badge bg-success fs-6">💰 Đã thanh toán đủ</span>',
+                                'DEPOSIT_PAID' => '<span class="badge bg-info fs-6">💵 Đã cọc</span>',
+                                default => '<span class="badge bg-secondary fs-6">⏸️ Chưa thanh toán</span>'
+                            };
+                            echo $paymentStatusBadge;
+                            ?>
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-info-circle"></i> 
+                                Thay đổi qua phần <a href="index.php?act=admin-booking-detail&id=<?= $booking['id'] ?>">Payment</a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        // Validate COMPLETED status
+        document.getElementById('booking_status')?.addEventListener('change', function() {
+            const selected = this.selectedOptions[0];
+            const warning = document.getElementById('completed_warning');
+            const paymentStatus = '<?= $paymentStatus ?>';
+            
+            if (selected.value === 'COMPLETED' && paymentStatus !== 'FULL_PAID') {
+                warning?.classList.remove('d-none');
+                if (!confirm('⚠️ CẢNH BÁO\n\nBooking chưa thanh toán đủ!\n\nBạn có chắc muốn chuyển sang HOÀN TẤT không?\n\n(Backend sẽ từ chối nếu chưa thanh toán đủ)')) {
+                    this.value = '<?= $booking['status'] ?>';
+                    warning?.classList.add('d-none');
+                }
+            } else {
+                warning?.classList.add('d-none');
+            }
+        });
+        </script>
+
         <!-- BƯỚC 4: Yêu cầu đặc biệt -->
         <div class="card mb-3 shadow-sm">
             <div class="card-header bg-info text-white">
                 <h5 class="mb-0">📝 Yêu cầu đặc biệt</h5>
             </div>
             <div class="card-body">
-                <textarea name="special_request" class="form-control"
-                    rows="3"><?= htmlspecialchars($booking['special_request'] ?? '') ?></textarea>
+                <textarea name="special_request" class="form-control" rows="3"><?= htmlspecialchars($booking['special_request'] ?? '') ?></textarea>
             </div>
         </div>
 
@@ -201,10 +332,19 @@ unset($_SESSION['old_data']);
                             <div class="col-md-2">
                                 <select name="items[<?= $idx ?>][type]" class="form-select">
                                     <?php
-                                    $types = ['SERVICE' => 'Dịch vụ', 'MEAL' => 'Bữa ăn', 'ROOM' => 'Phòng đơn', 'INSURANCE' => 'Bảo hiểm', 'TRANSPORT' => 'Vận chuyển', 'OTHER' => 'Khác'];
+                                    $types = [
+                                        'SERVICE' => 'Dịch vụ', 
+                                        'MEAL' => 'Bữa ăn', 
+                                        'ROOM' => 'Phòng đơn', 
+                                        'INSURANCE' => 'Bảo hiểm', 
+                                        'TRANSPORT' => 'Vận chuyển', 
+                                        'OTHER' => 'Khác'
+                                    ];
                                     foreach ($types as $k => $v):
-                                        ?>
-                                        <option value="<?= $k ?>" <?= $item['type'] == $k ? 'selected' : '' ?>><?= $v ?></option>
+                                    ?>
+                                        <option value="<?= $k ?>" <?= $item['type'] == $k ? 'selected' : '' ?>>
+                                            <?= $v ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -218,13 +358,16 @@ unset($_SESSION['old_data']);
                             </div>
                             <div class="col-md-1">
                                 <button type="button" class="btn btn-sm btn-danger"
-                                    onclick="this.closest('.item-row').remove(); updateTotals();">🗑️</button>
+                                    onclick="this.closest('.item-row').remove(); updateTotals();">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addItemRow()">+ Thêm dịch
-                    vụ</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addItemRow()">
+                    + Thêm dịch vụ
+                </button>
             </div>
         </div>
 
@@ -250,94 +393,79 @@ unset($_SESSION['old_data']);
 
         <!-- Buttons -->
         <div class="d-flex gap-2 mb-4">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-2"></i>Lưu thay đổi</button>
-            <a href="index.php?act=admin-booking" class="btn btn-secondary btn-lg">✖ Hủy</a>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-circle me-2"></i>Lưu thay đổi
+            </button>
+            <a href="index.php?act=admin-booking" class="btn btn-secondary btn-lg">
+                <i class="bi bi-x-circle me-2"></i>Hủy
+            </a>
         </div>
     </form>
 </div>
 
 <script>
-    let itemIndex = <?= count($items) ?>;
+let itemIndex = <?= count($items) ?>;
 
-    function switchMode(mode) {
-        const existingSection = document.getElementById('existingTourSection');
-        const customSection = document.getElementById('customTourSection');
-        const tourSelect = document.getElementById('tour_schedule');
-        const customInput = document.getElementById('custom_tour_name');
+function switchMode(mode) {
+    const existingSection = document.getElementById('existingTourSection');
+    const customSection = document.getElementById('customTourSection');
+    const tourSelect = document.getElementById('tour_schedule');
 
-        if (mode === 'existing') {
-            existingSection.style.display = 'block';
-            customSection.style.display = 'none';
-            tourSelect.required = true;
-            customInput.required = false;
-            customInput.value = '';
-        } else {
-            existingSection.style.display = 'none';
-            customSection.style.display = 'block';
-            tourSelect.required = false;
-            customInput.required = true;
-            tourSelect.value = '';
-        }
+    if (mode === 'existing') {
+        existingSection.style.display = 'block';
+        customSection.style.display = 'none';
+        tourSelect.required = true;
+    } else {
+        existingSection.style.display = 'none';
+        customSection.style.display = 'block';
+        tourSelect.required = false;
+        tourSelect.value = '';
     }
+}
 
-    function updateTotals() {
-        const adults = parseInt(document.getElementById('adults').value || 0);
-        const children = parseInt(document.getElementById('children').value || 0);
-        document.getElementById('total_people').value = adults + children;
+function updateTotals() {
+    const adults = parseInt(document.getElementById('adults').value || 0);
+    const children = parseInt(document.getElementById('children').value || 0);
+    document.getElementById('total_people').value = adults + children;
 
-        const selected = document.getElementById('tour_schedule').selectedOptions[0];
-        const priceAdult = selected ? parseFloat(selected.dataset.priceAdult || 0) : parseFloat(document.getElementById('price_adult').value || 0);
-        const priceChild = selected ? parseFloat(selected.dataset.priceChildren || 0) : parseFloat(document.getElementById('price_children').value || 0);
-        const tourAmount = adults * priceAdult + children * priceChild;
+    const priceAdult = parseFloat(document.getElementById('price_adult').value || 0);
+    const priceChild = parseFloat(document.getElementById('price_children').value || 0);
+    const tourAmount = (adults * priceAdult) + (children * priceChild);
 
-        let itemsAmount = 0;
-        document.querySelectorAll('.item-row').forEach(row => {
-            const qty = parseFloat(row.querySelector('.item-qty')?.value || 0);
-            const price = parseFloat(row.querySelector('.item-price')?.value || 0);
-            itemsAmount += qty * price;
-        });
+    let itemsAmount = 0;
+    document.querySelectorAll('.item-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.item-qty')?.value || 0);
+        const price = parseFloat(row.querySelector('.item-price')?.value || 0);
+        itemsAmount += qty * price;
+    });
 
-        document.getElementById('tour_amount').textContent = tourAmount.toLocaleString('vi-VN');
-        document.getElementById('items_amount').textContent = itemsAmount.toLocaleString('vi-VN');
-        document.getElementById('total_amount').textContent = (tourAmount + itemsAmount).toLocaleString('vi-VN');
-    }
+    document.getElementById('tour_amount').textContent = tourAmount.toLocaleString('vi-VN');
+    document.getElementById('items_amount').textContent = itemsAmount.toLocaleString('vi-VN');
+    document.getElementById('total_amount').textContent = (tourAmount + itemsAmount).toLocaleString('vi-VN');
+}
 
-    function updateReturnDate() {
-        const departInput = document.getElementById('depart_date');
-        const returnInput = document.getElementById('return_date');
-        const selected = document.getElementById('tour_schedule').selectedOptions[0];
-        let duration = 0;
-
-        if (selected && selected.value) {
-            duration = parseInt(selected.dataset.duration || 0);
-        } else {
-            // nếu tour custom, bạn có thể thêm input duration_custom
-            duration = parseInt(document.getElementById('duration_custom')?.value || 0);
-        }
-
+function updateReturnDate() {
+    const departInput = document.getElementById('depart_date');
+    const returnInput = document.getElementById('return_date');
+    const selected = document.getElementById('tour_schedule').selectedOptions[0];
+    
+    if (selected && selected.value) {
+        const duration = parseInt(selected.dataset.duration || 0);
         const departDate = departInput.value;
+        
         if (departDate && duration > 0) {
             const date = new Date(departDate);
             date.setDate(date.getDate() + duration);
             returnInput.value = date.toISOString().split('T')[0];
         }
     }
+}
 
-    document.getElementById('depart_date').addEventListener('change', updateReturnDate);
-    document.getElementById('tour_schedule').addEventListener('change', updateReturnDate);
-
-    // nếu có input duration_custom
-    document.getElementById('duration_custom')?.addEventListener('input', updateReturnDate);
-
-    // gọi luôn khi load
-    updateReturnDate();
-
-
-    function addItemRow() {
-        const container = document.getElementById('items-container');
-        const row = document.createElement('div');
-        row.className = 'item-row row mb-2';
-        row.innerHTML = `
+function addItemRow() {
+    const container = document.getElementById('items-container');
+    const row = document.createElement('div');
+    row.className = 'item-row row mb-2';
+    row.innerHTML = `
         <div class="col-md-4">
             <input type="text" name="items[${itemIndex}][description]" class="form-control" placeholder="Mô tả dịch vụ">
         </div>
@@ -358,35 +486,30 @@ unset($_SESSION['old_data']);
             <input type="number" name="items[${itemIndex}][unit_price]" class="form-control item-price" value="0" min="0" oninput="updateTotals()">
         </div>
         <div class="col-md-1">
-            <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.item-row').remove(); updateTotals();">🗑️</button>
+            <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.item-row').remove(); updateTotals();">
+                <i class="bi bi-trash"></i>
+            </button>
         </div>
     `;
-        container.appendChild(row);
-        itemIndex++;
+    container.appendChild(row);
+    itemIndex++;
+}
+
+// Event listeners
+document.getElementById('depart_date').addEventListener('change', updateReturnDate);
+document.getElementById('tour_schedule').addEventListener('change', function() {
+    const selected = this.selectedOptions[0];
+    if (selected && selected.value) {
+        document.getElementById('price_adult').value = selected.dataset.priceAdult;
+        document.getElementById('price_children').value = selected.dataset.priceChildren;
+        updateReturnDate();
     }
-
-    // Event listeners
-    document.getElementById('adults').addEventListener('input', updateTotals);
-    document.getElementById('children').addEventListener('input', updateTotals);
-    document.getElementById('price_adult').addEventListener('input', updateTotals);
-    document.getElementById('price_children').addEventListener('input', updateTotals);
-    document.getElementById('tour_schedule').addEventListener('change', function () {
-        const selected = this.selectedOptions[0];
-        if (selected && selected.value) {
-            document.getElementById('price_adult').value = selected.dataset.priceAdult;
-            document.getElementById('price_children').value = selected.dataset.priceChildren;
-
-            const departDate = document.getElementById('depart_date').value;
-            const duration = parseInt(selected.dataset.duration || 0);
-            if (departDate && duration) {
-                const date = new Date(departDate);
-                date.setDate(date.getDate() + duration);
-                const returnDate = date.toISOString().split('T')[0];
-                document.getElementById('return_date').value = returnDate;
-            }
-        }
-        updateTotals();
-    });
-
     updateTotals();
+});
+
+// Initialize
+updateTotals();
 </script>
+
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">

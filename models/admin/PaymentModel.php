@@ -172,6 +172,35 @@ class PaymentModel
         }
     }
 
+    /**
+     * ✅ TẠO PAYMENT HOÀN TIỀN (số âm)
+     */
+    public function createRefundPayment($booking_id, $refundAmount, $reason = '')
+    {
+        try {
+            $paymentCode = 'REF-' . date('ymd') . '-' . rand(1000, 9999);
+
+            $stmt = $this->pdo->prepare("
+            INSERT INTO payments 
+            (booking_id, payment_code, amount, payment_method, payment_date, status, notes)
+            VALUES (?, ?, ?, 'REFUND', NOW(), 'COMPLETED', ?)
+        ");
+
+            // ✅ Số tiền âm để đánh dấu là hoàn tiền
+            $stmt->execute([
+                $booking_id,
+                $paymentCode,
+                -abs($refundAmount), // Luôn âm
+                $reason ?: 'Hoàn tiền'
+            ]);
+
+            return $this->pdo->lastInsertId();
+
+        } catch (\Throwable $e) {
+            error_log("CreateRefundPayment Error: " . $e->getMessage());
+            return null;
+        }
+    }
     /** ========================
      *  📊 TÍNH TỔNG TIỀN ĐÃ THANH TOÁN
      *  ======================== */
