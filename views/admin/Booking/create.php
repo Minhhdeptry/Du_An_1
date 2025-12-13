@@ -25,15 +25,15 @@ unset($_SESSION['old_data']);
         </div>
         <div class="card-body">
             <div class="btn-group w-100 mb-3" role="group">
-                <input type="radio" class="btn-check" name="booking_mode" id="mode_scheduled" 
-                    value="scheduled" checked onclick="switchMode('scheduled')">
+                <input type="radio" class="btn-check" name="booking_mode" id="mode_scheduled" value="scheduled" checked
+                    onclick="switchMode('scheduled')">
                 <label class="btn btn-outline-primary btn-lg" for="mode_scheduled">
                     <i class="bi bi-calendar-check"></i> Đặt theo lịch có sẵn
                     <br><small>Chọn từ các tour đang mở</small>
                 </label>
 
-                <input type="radio" class="btn-check" name="booking_mode" id="mode_custom" 
-                    value="custom" onclick="switchMode('custom')">
+                <input type="radio" class="btn-check" name="booking_mode" id="mode_custom" value="custom"
+                    onclick="switchMode('custom')">
                 <label class="btn btn-outline-success btn-lg" for="mode_custom">
                     <i class="bi bi-pencil-square"></i> Tạo tour theo yêu cầu
                     <br><small>Tự do tùy chỉnh thông tin</small>
@@ -54,7 +54,12 @@ unset($_SESSION['old_data']);
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold">Lịch khởi hành <span class="text-danger">*</span></label>
+                        <!-- views/admin/Booking/create.php - PHẦN DROPDOWN -->
+
+                        <!-- views/admin/Booking/create.php - PHẦN DROPDOWN -->
+
                         <select name="tour_schedule_id" id="tour_schedule_select" class="form-select form-select-lg">
+                            
                             <option value="">-- Chọn lịch tour --</option>
                             <?php foreach ($schedules as $sc): ?>
                                 <?php
@@ -65,14 +70,26 @@ unset($_SESSION['old_data']);
                                 $seatsAvail = (int) ($sc['seats_available'] ?? 0);
                                 $priceAdult = (float) ($sc['price_adult'] ?? 0);
                                 $priceChildren = (float) ($sc['price_children'] ?? 0);
+
+                                // ✅ Kiểm tra tour custom (strict checking)
+                                $isCustomRequest = isset($sc['is_custom_request']) ? (int) $sc['is_custom_request'] : 0;
+                                $isCustom = ($isCustomRequest === 1);
+
+                                // Hiển thị thông tin chỗ và loại tour
+                                if ($isCustom) {
+                                    $seatInfo = "Không giới hạn chỗ";
+                                    $tourLabel = "🔖 " . $tourTitle . " (Yêu cầu)";
+                                } else {
+                                    $seatInfo = "Còn {$seatsAvail} chỗ";
+                                    $tourLabel = $tourTitle;
+                                }
                                 ?>
-                                <option value="<?= $sc['id'] ?>" 
-                                    data-duration="<?= $duration ?>"
-                                    data-price-adult="<?= $priceAdult ?>"
-                                    data-price-children="<?= $priceChildren ?>"
-                                    data-seats="<?= $seatsAvail ?>">
-                                    [<?= $category ?>] <?= $tourTitle ?> - Khởi hành: <?= $departDate ?> (<?= $duration ?> ngày)
-                                    - Còn <?= $seatsAvail ?> chỗ
+                                <option value="<?= $sc['id'] ?>" data-duration="<?= $duration ?>"
+                                    data-price-adult="<?= $priceAdult ?>" data-price-children="<?= $priceChildren ?>"
+                                    data-seats="<?= $seatsAvail ?>" data-is-custom="<?= $isCustom ? '1' : '0' ?>">
+                                    [<?= $category ?>] <?= $tourLabel ?> - Khởi hành: <?= $departDate ?> (<?= $duration ?>
+                                    ngày)
+                                    - <?= $seatInfo ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -107,33 +124,34 @@ unset($_SESSION['old_data']);
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold">Tên tour <span class="text-danger">*</span></label>
-                        <input type="text" name="custom_tour_name" id="custom_tour_name" 
-                            class="form-control" placeholder="Vd: Tour Phú Quốc 4N3Đ">
+                        <input type="text" name="custom_tour_name" id="custom_tour_name" class="form-control"
+                            placeholder="Vd: Tour Phú Quốc 4N3Đ">
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Ngày khởi hành <span class="text-danger">*</span></label>
-                            <input type="date" name="depart_date" id="custom_depart_date" 
-                                class="form-control" min="<?= date('Y-m-d') ?>">
+                            <input type="date" name="depart_date" id="custom_depart_date" class="form-control"
+                                min="<?= date('Y-m-d') ?>">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Ngày về</label>
-                            <input type="date" name="return_date" id="custom_return_date" 
-                                class="form-control" min="<?= date('Y-m-d') ?>">
+                            <input type="date" name="return_date" id="custom_return_date" class="form-control"
+                                min="<?= date('Y-m-d') ?>">
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Giá người lớn (VNĐ) <span class="text-danger">*</span></label>
-                            <input type="number" name="price_adult" id="custom_price_adult" 
-                                class="form-control" min="0" step="1000" oninput="updateTotals()">
+                            <label class="form-label fw-bold">Giá người lớn (VNĐ) <span
+                                    class="text-danger">*</span></label>
+                            <input type="number" name="price_adult" id="custom_price_adult" class="form-control" min="0"
+                                step="1000" oninput="updateTotals()">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Giá trẻ em (VNĐ)</label>
-                            <input type="number" name="price_children" id="custom_price_children" 
-                                class="form-control" min="0" step="1000" oninput="updateTotals()">
+                            <input type="number" name="price_children" id="custom_price_children" class="form-control"
+                                min="0" step="1000" oninput="updateTotals()">
                         </div>
                     </div>
                 </div>
@@ -166,18 +184,17 @@ unset($_SESSION['old_data']);
                 <div class="row">
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Người lớn <span class="text-danger">*</span></label>
-                        <input type="number" name="adults" id="adults" class="form-control" 
-                            min="1" value="1" required oninput="updateTotals()">
+                        <input type="number" name="adults" id="adults" class="form-control" min="1" value="1" required
+                            oninput="updateTotals()">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Trẻ em</label>
-                        <input type="number" name="children" id="children" class="form-control" 
-                            min="0" value="0" oninput="updateTotals()">
+                        <input type="number" name="children" id="children" class="form-control" min="0" value="0"
+                            oninput="updateTotals()">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Tổng người</label>
-                        <input type="number" id="total_people" class="form-control bg-light" 
-                            value="1" readonly>
+                        <input type="number" id="total_people" class="form-control bg-light" value="1" readonly>
                     </div>
                 </div>
             </div>
@@ -189,7 +206,7 @@ unset($_SESSION['old_data']);
                 <h5 class="mb-0">📝 Yêu cầu đặc biệt</h5>
             </div>
             <div class="card-body">
-                <textarea name="special_request" class="form-control" rows="3" 
+                <textarea name="special_request" class="form-control" rows="3"
                     placeholder="Ghi chú đặc biệt từ khách hàng..."></textarea>
             </div>
         </div>
@@ -226,75 +243,75 @@ unset($_SESSION['old_data']);
 </div>
 
 <script>
-let currentMode = 'scheduled';
+    let currentMode = 'scheduled';
 
-function switchMode(mode) {
-    currentMode = mode;
-    const scheduledMode = document.getElementById('scheduledMode');
-    const customMode = document.getElementById('customMode');
-    const scheduleSelect = document.getElementById('tour_schedule_select');
-    const customFields = ['custom_tour_name', 'custom_depart_date', 'custom_price_adult'];
+    function switchMode(mode) {
+        currentMode = mode;
+        const scheduledMode = document.getElementById('scheduledMode');
+        const customMode = document.getElementById('customMode');
+        const scheduleSelect = document.getElementById('tour_schedule_select');
+        const customFields = ['custom_tour_name', 'custom_depart_date', 'custom_price_adult'];
 
-    if (mode === 'scheduled') {
-        scheduledMode.style.display = 'block';
-        customMode.style.display = 'none';
-        scheduleSelect.required = true;
-        customFields.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.required = false;
-        });
-    } else {
-        scheduledMode.style.display = 'none';
-        customMode.style.display = 'block';
-        scheduleSelect.required = false;
-        scheduleSelect.value = '';
-        customFields.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.required = true;
-        });
-    }
-    updateTotals();
-}
-
-function updateTotals() {
-    const adults = parseInt(document.getElementById('adults').value || 0);
-    const children = parseInt(document.getElementById('children').value || 0);
-    document.getElementById('total_people').value = adults + children;
-
-    let priceAdult = 0;
-    let priceChildren = 0;
-
-    if (currentMode === 'scheduled') {
-        const selected = document.getElementById('tour_schedule_select').selectedOptions[0];
-        if (selected && selected.value) {
-            priceAdult = parseFloat(selected.dataset.priceAdult || 0);
-            priceChildren = parseFloat(selected.dataset.priceChildren || 0);
+        if (mode === 'scheduled') {
+            scheduledMode.style.display = 'block';
+            customMode.style.display = 'none';
+            scheduleSelect.required = true;
+            customFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.required = false;
+            });
+        } else {
+            scheduledMode.style.display = 'none';
+            customMode.style.display = 'block';
+            scheduleSelect.required = false;
+            scheduleSelect.value = '';
+            customFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.required = true;
+            });
         }
-    } else {
-        priceAdult = parseFloat(document.getElementById('custom_price_adult')?.value || 0);
-        priceChildren = parseFloat(document.getElementById('custom_price_children')?.value || 0);
-    }
-
-    const total = (adults * priceAdult) + (children * priceChildren);
-    document.getElementById('total_amount').textContent = total.toLocaleString('vi-VN');
-}
-
-// Event: Chọn tour schedule
-document.getElementById('tour_schedule_select').addEventListener('change', function() {
-    const selected = this.selectedOptions[0];
-    if (selected && selected.value) {
-        const priceAdult = parseFloat(selected.dataset.priceAdult || 0);
-        const priceChildren = parseFloat(selected.dataset.priceChildren || 0);
-        
-        document.getElementById('display_price_adult').value = priceAdult.toLocaleString('vi-VN') + ' đ';
-        document.getElementById('display_price_children').value = priceChildren.toLocaleString('vi-VN') + ' đ';
-        
         updateTotals();
     }
-});
 
-// Initialize
-updateTotals();
+    function updateTotals() {
+        const adults = parseInt(document.getElementById('adults').value || 0);
+        const children = parseInt(document.getElementById('children').value || 0);
+        document.getElementById('total_people').value = adults + children;
+
+        let priceAdult = 0;
+        let priceChildren = 0;
+
+        if (currentMode === 'scheduled') {
+            const selected = document.getElementById('tour_schedule_select').selectedOptions[0];
+            if (selected && selected.value) {
+                priceAdult = parseFloat(selected.dataset.priceAdult || 0);
+                priceChildren = parseFloat(selected.dataset.priceChildren || 0);
+            }
+        } else {
+            priceAdult = parseFloat(document.getElementById('custom_price_adult')?.value || 0);
+            priceChildren = parseFloat(document.getElementById('custom_price_children')?.value || 0);
+        }
+
+        const total = (adults * priceAdult) + (children * priceChildren);
+        document.getElementById('total_amount').textContent = total.toLocaleString('vi-VN');
+    }
+
+    // Event: Chọn tour schedule
+    document.getElementById('tour_schedule_select').addEventListener('change', function () {
+        const selected = this.selectedOptions[0];
+        if (selected && selected.value) {
+            const priceAdult = parseFloat(selected.dataset.priceAdult || 0);
+            const priceChildren = parseFloat(selected.dataset.priceChildren || 0);
+
+            document.getElementById('display_price_adult').value = priceAdult.toLocaleString('vi-VN') + ' đ';
+            document.getElementById('display_price_children').value = priceChildren.toLocaleString('vi-VN') + ' đ';
+
+            updateTotals();
+        }
+    });
+
+    // Initialize
+    updateTotals();
 </script>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
