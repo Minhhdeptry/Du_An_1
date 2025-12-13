@@ -184,6 +184,9 @@ class BookingController
             exit;
         }
 
+        // ✅ THÊM: Lấy trạng thái thanh toán
+        $booking['payment_status'] = $this->bookingModel->getPaymentStatus($id);
+
         // ✅ Lấy danh sách lịch tour mở (OPEN) cho dropdown chọn schedule
         $schedules = $this->bookingModel->getOpenSchedules();
 
@@ -199,6 +202,7 @@ class BookingController
     }
 
 
+
     /** ------------------------
      *  Xử lý cập nhật booking
      */
@@ -209,10 +213,11 @@ class BookingController
 
         $data = $_POST;
 
+        // ✅ Gọi model để xử lý update (đã có validation đầy đủ trong model)
         $res = $this->bookingModel->update($id, $data, $author_id);
 
         if ($res['ok'] ?? false) {
-            // ✅ Xử lý items
+            // ✅ Xử lý items (dịch vụ bổ sung)
             $this->handleBookingItems($id, $data);
 
             $_SESSION['success'] = "✅ Cập nhật booking thành công!";
@@ -257,7 +262,7 @@ class BookingController
         $res = $this->bookingModel->confirmBooking($id, $author_id);
 
         if ($res['ok'] ?? false) {
-            $_SESSION['success'] = "✅ Đã xác nhận booking thành công!";
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Đã xác nhận booking');
         } else {
             $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Xác nhận thất bại']);
         }
@@ -266,6 +271,78 @@ class BookingController
         exit;
     }
 
+    public function startTour(): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $res = $this->bookingModel->startTour($id, $author_id);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Tour đã bắt đầu');
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Bắt đầu tour thất bại']);
+        }
+
+        header("Location: index.php?act=admin-booking-detail&id={$id}");
+        exit;
+    }
+
+    /** ------------------------
+     *  ✅ HOÀN TẤT TOUR (IN_PROGRESS → COMPLETED)
+     */
+    public function complete(): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $res = $this->bookingModel->markAsCompleted($id, $author_id);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Tour đã hoàn tất');
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Hoàn tất thất bại']);
+        }
+
+        header("Location: index.php?act=admin-booking");
+        exit;
+    }
+
+    public function refund(): void
+    {
+        $id = (int) ($_POST['booking_id'] ?? $_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $refundAmount = (float) ($_POST['refund_amount'] ?? 0);
+        $reason = trim($_POST['refund_reason'] ?? '');
+
+        $res = $this->bookingModel->refund($id, $author_id, $refundAmount, $reason);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Đã hoàn tiền thành công');
+            header("Location: index.php?act=admin-booking");
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Hoàn tiền thất bại']);
+            header("Location: index.php?act=admin-booking-detail&id={$id}");
+        }
+        exit;
+    }
+    public function markReady(): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $res = $this->bookingModel->markAsReady($id, $author_id);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Đã chuyển sang Sẵn sàng');
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Chuyển trạng thái thất bại']);
+        }
+
+        header("Location: index.php?act=admin-booking-detail&id={$id}");
+        exit;
+    }
     /** ------------------------
      *  Xem chi tiết booking
      */

@@ -83,6 +83,10 @@ match ($act) {
   'admin-booking-create' => (new BookingController())->createForm($currentAct),
   'admin-booking-store' => (new BookingController())->store(),
   'admin-booking-confirm' => (new BookingController())->confirm(),
+  'admin-booking-refund' => (new BookingController())->refund(),
+  'admin-booking-complete' => (new BookingController())->complete(),
+  'admin-booking-mark-ready' => (new BookingController())->markReady(),
+  'admin-booking-start-tour' => (new BookingController())->startTour(),
   'admin-booking-detail' => (new BookingController())->detail($currentAct),
   // Xóa item dùng deleteItem()
   'admin-booking-item-delete' => (new BookingController())->deleteItem(),
