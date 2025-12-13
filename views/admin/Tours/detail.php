@@ -7,7 +7,7 @@
     <title>Chi tiết Tour</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    
+
     <style>
         .tour-hero {
             height: 400px;
@@ -25,7 +25,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6));
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.6));
         }
 
         .tour-hero-content {
@@ -40,11 +40,11 @@
             font-size: 2.5rem;
             font-weight: 700;
             margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .tour-badge {
-            background: rgba(255,255,255,0.9);
+            background: rgba(255, 255, 255, 0.9);
             color: #333;
             padding: 8px 16px;
             border-radius: 20px;
@@ -56,12 +56,12 @@
         .info-card {
             border: none;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             transition: all 0.3s;
         }
 
         .info-card:hover {
-            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
             transform: translateY(-2px);
         }
 
@@ -152,7 +152,7 @@
 
         .action-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
     </style>
 </head>
@@ -185,16 +185,29 @@
             </div>
         </div>
 
-        <!-- Hero Image & Title -->
-        <div class="tour-hero mb-4" style="background-image: url('<?= !empty($tour['image_url']) ? htmlspecialchars($tour['image_url']) : 'assets/images/placeholder.jpg' ?>');">
+        <?php
+        // Xử lý đường dẫn ảnh
+        $imageSrc = !empty($tour['image_url']) ? $tour['image_url'] : 'placeholder.jpg';
+
+        // Nếu chỉ là tên file → thêm folder assets/images và từ root
+        if (!preg_match('#^(https?:)?//#i', $imageSrc) && !str_starts_with($imageSrc, '/')) {
+            $imageSrc = '/assets/images/' . ltrim($imageSrc, '/');
+        }
+
+        // Fallback nếu muốn mặc định ảnh placeholder
+        $defaultImage = '/assets/images/placeholder.jpg';
+        $imageSrc = $imageSrc ?: $defaultImage;
+        ?>
+
+        <div class="tour-hero mb-4" style="background-image: url('<?= htmlspecialchars($imageSrc) ?>');">
             <div class="tour-hero-content">
-                <h1 class="tour-hero-title"><?= htmlspecialchars($tour['title']) ?></h1>
+                <h1 class="tour-hero-title"><?= htmlspecialchars($tour['title'] ?? 'Chưa có tiêu đề') ?></h1>
                 <div>
                     <span class="tour-badge">
-                        <i class="bi bi-tag"></i> <?= htmlspecialchars($tour['code']) ?>
+                        <i class="bi bi-tag"></i> <?= htmlspecialchars($tour['code'] ?? '') ?>
                     </span>
                     <span class="tour-badge">
-                        <i class="bi bi-clock"></i> <?= $tour['duration_days'] ?> ngày
+                        <i class="bi bi-clock"></i> <?= (int) ($tour['duration_days'] ?? 0) ?> ngày
                     </span>
                     <span class="tour-badge">
                         <i class="bi bi-folder"></i> <?= htmlspecialchars($tour['category_name'] ?? 'Chưa phân loại') ?>
@@ -202,6 +215,7 @@
                 </div>
             </div>
         </div>
+
 
         <div class="row">
             <!-- Left Column -->
@@ -222,7 +236,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="col-md-4 mb-3">
                         <div class="info-card card h-100">
                             <div class="card-body d-flex align-items-center">
@@ -236,7 +250,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="col-md-4 mb-3">
                         <div class="info-card card h-100">
                             <div class="card-body d-flex align-items-center">
@@ -264,7 +278,7 @@
                                 <?= nl2br(htmlspecialchars($tour['short_desc'])) ?>
                             </div>
                         <?php endif; ?>
-                        
+
                         <?php if (!empty($tour['full_desc'])): ?>
                             <div class="tour-description">
                                 <?= nl2br(htmlspecialchars($tour['full_desc'])) ?>
@@ -280,7 +294,7 @@
                     <div class="card info-card mb-4">
                         <div class="card-header bg-white">
                             <h5 class="mb-0">
-                                <i class="bi bi-map"></i> Lịch trình chi tiết 
+                                <i class="bi bi-map"></i> Lịch trình chi tiết
                                 <span class="badge bg-primary"><?= count($itineraries) ?> ngày</span>
                             </h5>
                         </div>
@@ -289,11 +303,11 @@
                                 <div class="itinerary-day">
                                     <div class="day-number">Ngày <?= $day['day_number'] ?></div>
                                     <h5><?= htmlspecialchars($day['title']) ?></h5>
-                                    
+
                                     <?php if (!empty($day['description'])): ?>
                                         <p class="text-muted"><?= nl2br(htmlspecialchars($day['description'])) ?></p>
                                     <?php endif; ?>
-                                    
+
                                     <?php if (!empty($day['activities'])): ?>
                                         <div class="schedule-item">
                                             <strong><i class="bi bi-list-check"></i> Hoạt động:</strong>
@@ -302,21 +316,21 @@
                                             </div>
                                         </div>
                                     <?php endif; ?>
-                                    
+
                                     <div class="row mt-2">
                                         <?php if (!empty($day['accommodation'])): ?>
                                             <div class="col-md-6">
                                                 <small>
-                                                    <i class="bi bi-house-door text-primary"></i> 
+                                                    <i class="bi bi-house-door text-primary"></i>
                                                     <strong>Nghỉ:</strong> <?= htmlspecialchars($day['accommodation']) ?>
                                                 </small>
                                             </div>
                                         <?php endif; ?>
-                                        
+
                                         <?php if (!empty($day['meals'])): ?>
                                             <div class="col-md-6">
                                                 <small>
-                                                    <i class="bi bi-cup-hot text-success"></i> 
+                                                    <i class="bi bi-cup-hot text-success"></i>
                                                     <strong>Ăn:</strong> <?= htmlspecialchars($day['meals']) ?>
                                                 </small>
                                             </div>
@@ -427,7 +441,8 @@
                         <h6 class="mb-0"><i class="bi bi-lightning"></i> Thao tác nhanh</h6>
                     </div>
                     <div class="card-body d-grid gap-2">
-                        <a href="?act=admin-schedule&keyword=<?= urlencode($tour['code']) ?>" class="btn btn-outline-primary">
+                        <a href="?act=admin-schedule&keyword=<?= urlencode($tour['code']) ?>"
+                            class="btn btn-outline-primary">
                             <i class="bi bi-calendar-plus"></i> Quản lý lịch khởi hành
                         </a>
                         <a href="?act=admin-itinerary&tour_id=<?= $tour['id'] ?>" class="btn btn-outline-info">
