@@ -368,7 +368,7 @@ class StaffController
             throw new Exception("Không thể tạo tài khoản user!");
         }
 
-        return (int)$user_id;
+        return (int) $user_id;
     }
 
     /**

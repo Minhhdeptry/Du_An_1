@@ -42,7 +42,7 @@ class StaffRatingController
 
         $pageTitle = "Đánh giá HDV - " . $staff['full_name'];
         $currentAct = $act;
-        $view = "./views/admin/Staff/ratings.php";
+        $view = "./views/admin/Staff/rating.php";
         include "./views/layout/adminLayout.php";
     }
 

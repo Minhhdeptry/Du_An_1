@@ -14,6 +14,8 @@ class TourScheduleModel
         }
 
         $this->pdo = $pdo;
+
+        $this->autoUpdateScheduleStatus();
     }
 
     // Lấy tất cả lịch, kèm tour + danh mục
@@ -35,30 +37,86 @@ class TourScheduleModel
         return $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Tìm kiếm lịch theo tour, mã tour, ngày đi/về, danh mục
+    public function autoUpdateScheduleStatus()
+    {
+        try {
+            $today = date('Y-m-d');
+
+            // ✅ CASE 1: Tour quá lịch + KHÔNG có booking → CLOSED
+            $sql1 = "UPDATE tour_schedule ts
+                     SET ts.status = 'CLOSED'
+                     WHERE ts.return_date < ?
+                       AND ts.status IN ('OPEN', 'CLOSED')
+                       AND NOT EXISTS (
+                           SELECT 1 FROM bookings b 
+                           WHERE b.tour_schedule_id = ts.id 
+                           AND b.status NOT IN ('CANCELED')
+                       )";
+            $stmt1 = $this->pdo->prepare($sql1);
+            $stmt1->execute([$today]);
+
+            // ✅ CASE 2: Tour quá lịch + CÓ booking → FINISHED
+            $sql2 = "UPDATE tour_schedule ts
+                     SET ts.status = 'FINISHED'
+                     WHERE ts.return_date < ?
+                       AND ts.status IN ('OPEN', 'CLOSED')
+                       AND EXISTS (
+                           SELECT 1 FROM bookings b 
+                           WHERE b.tour_schedule_id = ts.id 
+                           AND b.status NOT IN ('CANCELED')
+                       )";
+            $stmt2 = $this->pdo->prepare($sql2);
+            $stmt2->execute([$today]);
+
+            // ✅ CASE 3: Tour chưa đến lịch → OPEN (nếu đang là CLOSED)
+            // Chỉ áp dụng cho tour đã đóng do hết hạn, không ảnh hưởng CANCELED
+            $sql3 = "UPDATE tour_schedule
+                     SET status = 'OPEN'
+                     WHERE depart_date >= ?
+                       AND status = 'CLOSED'";
+            $stmt3 = $this->pdo->prepare($sql3);
+            $stmt3->execute([$today]);
+
+
+        } catch (PDOException $e) {
+            error_log("AutoUpdateScheduleStatus Error: " . $e->getMessage());
+        }
+    }
+
+
     public function searchByKeyword($keyword)
     {
         $sql = "SELECT ts.*, 
-                       t.title AS tour_title, t.code AS tour_code, 
-                       c.name AS category_name,
-                       u1.full_name AS guide_name,
-                       u2.full_name AS assistant_name
-                FROM tour_schedule ts
-                JOIN tours t ON ts.tour_id = t.id
-                LEFT JOIN tour_category c ON t.category_id = c.id
-                LEFT JOIN staffs s1 ON ts.guide_id = s1.id
-                LEFT JOIN users u1 ON s1.user_id = u1.id
-                LEFT JOIN staffs s2 ON ts.assistant_guide_id = s2.id
-                LEFT JOIN users u2 ON s2.user_id = u2.id
-                WHERE t.title LIKE :kw
-                   OR t.code LIKE :kw
-                   OR ts.depart_date LIKE :kw
-                   OR ts.return_date LIKE :kw
-                   OR c.name LIKE :kw
-                ORDER BY ts.id DESC";
+                   t.title AS tour_title, t.code AS tour_code, 
+                   c.name AS category_name,
+                   u1.full_name AS guide_name,
+                   u2.full_name AS assistant_name
+            FROM tour_schedule ts
+            JOIN tours t ON ts.tour_id = t.id
+            LEFT JOIN tour_category c ON t.category_id = c.id
+            LEFT JOIN staffs s1 ON ts.guide_id = s1.id
+            LEFT JOIN users u1 ON s1.user_id = u1.id
+            LEFT JOIN staffs s2 ON ts.assistant_guide_id = s2.id
+            LEFT JOIN users u2 ON s2.user_id = u2.id
+            WHERE t.title LIKE ?
+               OR t.code LIKE ?
+               OR ts.depart_date LIKE ?
+               OR ts.return_date LIKE ?
+               OR c.name LIKE ?
+            ORDER BY ts.id DESC";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':kw' => "%$keyword%"]);
+
+        // ✅ FIX: Cần 5 tham số vì có 5 dấu ? trong WHERE
+        $searchTerm = "%$keyword%";
+        $stmt->execute([
+            $searchTerm,  // t.title LIKE ?
+            $searchTerm,  // t.code LIKE ?
+            $searchTerm,  // ts.depart_date LIKE ?
+            $searchTerm,  // ts.return_date LIKE ?
+            $searchTerm   // c.name LIKE ?
+        ]);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -177,4 +235,17 @@ class TourScheduleModel
         $count = $stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0;
         return $count > 0;
     }
+
+    public function getBookingCount($schedule_id)
+    {
+        $stmt = $this->pdo->prepare("
+        SELECT COUNT(*) as booking_count
+        FROM bookings
+        WHERE tour_schedule_id = ?
+          AND status NOT IN ('CANCELED')
+    ");
+        $stmt->execute([$schedule_id]);
+        return (int) $stmt->fetchColumn();
+    }
+
 }

@@ -308,7 +308,7 @@
                                             <i class="bi bi-eye"></i>
                                         </a>
 
-                                        <a href="index.php?act=admin-staff-performance&id=<?= $s['id'] ?>"
+                                        <a href="index.php?act=admin-staff-performance&staff_id=<?= $s['id'] ?>"
                                             class="btn btn-primary" title="Hiệu suất">
                                             <i class="bi bi-graph-up"></i>
                                         </a>

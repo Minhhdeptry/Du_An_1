@@ -44,7 +44,7 @@ class StaffScheduleController
     /**
      * Lấy lịch theo tháng
      */
-    private function getMonthSchedules($month, $year, $staff_id = null)
+    public function getMonthSchedules($month, $year, $staff_id = null)
     {
         $sql = "SELECT 
                     ts.id,
@@ -84,6 +84,7 @@ class StaffScheduleController
     /**
      * Form phân công HDV cho tour
      */
+
     public function assignForm($act)
     {
         $tour_schedule_id = $_GET['schedule_id'] ?? null;
@@ -103,7 +104,85 @@ class StaffScheduleController
             exit;
         }
 
-        // ✅ Lấy danh sách HDV đã được phân công cho tour này
+        // ✅ CHECK SỐ BOOKING TRƯỚC KHI CHO PHÉP PHÂN CÔNG
+        $pdo = $this->staffModel->getConnection();
+        $stmtBooking = $pdo->prepare("
+        SELECT COUNT(*) as booking_count,
+               GROUP_CONCAT(booking_code SEPARATOR ', ') as booking_codes
+        FROM bookings 
+        WHERE tour_schedule_id = ? 
+        AND status NOT IN ('CANCELED')
+    ");
+        $stmtBooking->execute([$tour_schedule_id]);
+        $bookingInfo = $stmtBooking->fetch(PDO::FETCH_ASSOC);
+        $bookingCount = (int) ($bookingInfo['booking_count'] ?? 0);
+        $bookingCodes = $bookingInfo['booking_codes'] ?? '';
+
+        // ✅ NẾU CHƯA CÓ BOOKING VÀ KHÔNG CÓ FORCE FLAG → CHẶN + HIỂN thị WARNING
+        if ($bookingCount === 0 && empty($_GET['force'])) {
+            $_SESSION['error'] = '
+            <div class="alert alert-warning">
+                <h5 class="alert-heading">
+                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                    CẢNH BÁO: Lịch tour chưa có booking
+                </h5>
+                <hr>
+                <p class="mb-2">
+                    <strong>Lịch tour:</strong> ' . htmlspecialchars($schedule['tour_title']) . '<br>
+                    <strong>Ngày khởi hành:</strong> ' . date('d/m/Y', strtotime($schedule['depart_date'])) . '<br>
+                    <strong>Số booking hiện tại:</strong> <span class="badge bg-danger">0</span>
+                </p>
+                <hr>
+                <p class="mb-2"><strong>💡 Khuyến nghị:</strong></p>
+                <ul class="mb-3">
+                    <li>Nên đợi có booking trước khi phân công HDV</li>
+                    <li>Tối ưu nguồn lực và thời gian của HDV</li>
+                    <li>Tránh phân công rồi phải hủy/thay đổi</li>
+                </ul>
+                <div class="d-flex gap-2">
+                    <a href="?act=admin-staff-assign-form&schedule_id=' . $tour_schedule_id . '&force=1" 
+                       class="btn btn-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        Vẫn muốn phân công (không khuyến nghị)
+                    </a>
+                    <a href="?act=admin-schedule" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> 
+                        Quay lại danh sách lịch
+                    </a>
+                </div>
+            </div>
+        ';
+            header("Location: index.php?act=admin-schedule");
+            exit;
+        }
+
+        // ✅ NẾU CÓ FORCE=1 → GHI LOG CẢNH BÁO
+        if ($bookingCount === 0 && !empty($_GET['force'])) {
+            error_log("⚠️ [FORCE ASSIGN] Admin phân công HDV cho schedule #{$tour_schedule_id} dù chưa có booking");
+
+            // Hiển thị thông báo cảnh báo trên form
+            $_SESSION['warning'] = '
+            <div class="alert alert-warning alert-dismissible fade show">
+                <i class="bi bi-exclamation-triangle-fill"></i> 
+                <strong>Chú ý:</strong> Bạn đang phân công HDV cho lịch chưa có booking. 
+                Hãy đảm bảo rằng tour này sẽ có khách đặt.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        ';
+        }
+
+        // ✅ NẾU CÓ BOOKING → HIỂN THỊ THÔNG TIN
+        if ($bookingCount > 0) {
+            $_SESSION['success'] = '
+            <div class="alert alert-success alert-dismissible fade show">
+                <i class="bi bi-check-circle-fill"></i> 
+                <strong>Lịch này có ' . $bookingCount . ' booking:</strong> ' . htmlspecialchars($bookingCodes) . '
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        ';
+        }
+
+        // ✅ Lấy danh sách HDV đã được phân công
         $assignedStaffIds = $this->getAssignedStaffIds($tour_schedule_id);
 
         // Kiểm tra đã đủ HDV chưa
@@ -118,12 +197,12 @@ class StaffScheduleController
             exit;
         }
 
-        // ✅ Lấy HDV rảnh (loại trừ HDV đã được phân công)
+        // ✅ Lấy HDV rảnh
         $available_staffs = $this->getAvailableStaffs(
             $schedule['depart_date'],
             $schedule['return_date'],
             $tour_schedule_id,
-            $assignedStaffIds // ✅ Truyền thêm danh sách HDV đã phân công
+            $assignedStaffIds
         );
 
         $pageTitle = "Phân công HDV - " . $schedule['tour_title'];
@@ -135,7 +214,7 @@ class StaffScheduleController
     /**
      * ✅ Lấy danh sách ID HDV đã được phân công cho tour này
      */
-    private function getAssignedStaffIds($tour_schedule_id)
+    public function getAssignedStaffIds($tour_schedule_id)
     {
         $sql = "SELECT guide_id, assistant_guide_id 
                 FROM tour_schedule 
@@ -160,7 +239,7 @@ class StaffScheduleController
     /**
      * ✅ Lấy schedule kèm tour_title và tên HDV
      */
-    private function getScheduleWithTour($schedule_id)
+    public function getScheduleWithTour($schedule_id)
     {
         $sql = "SELECT ts.*, t.title AS tour_title, t.code AS tour_code,
                        u1.full_name AS guide_name, u2.full_name AS assistant_name
@@ -178,8 +257,9 @@ class StaffScheduleController
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+
     /**
-     * Lưu phân công HDV
+     * ✅ LƯU PHÂN CÔNG HDV (CÓ VALIDATION)
      */
     public function assignStore()
     {
@@ -193,15 +273,22 @@ class StaffScheduleController
             exit;
         }
 
-        // ✅ Validate: Ít nhất phải chọn 1 HDV
+        // ✅ VALIDATE 1: Phải chọn ít nhất 1 HDV
         if (empty($guide_id) && empty($assistant_guide_id)) {
             $_SESSION['error'] = "❌ Vui lòng chọn ít nhất 1 HDV!";
             header("Location: index.php?act=admin-staff-assign-form&schedule_id=" . $tour_schedule_id);
             exit;
         }
 
+        // ✅ VALIDATE 2: HDV chính và HDV phụ KHÔNG được trùng nhau
+        if ($guide_id && $assistant_guide_id && $guide_id == $assistant_guide_id) {
+            $_SESSION['error'] = "❌ HDV chính và HDV phụ không được là cùng 1 người!";
+            header("Location: index.php?act=admin-staff-assign-form&schedule_id=" . $tour_schedule_id);
+            exit;
+        }
+
         try {
-            // Phân công HDV chính
+            // ✅ Phân công HDV chính
             if ($guide_id) {
                 $result = $this->historyModel->assignStaffToTour($guide_id, $tour_schedule_id, 'GUIDE');
                 if (!$result['ok']) {
@@ -209,7 +296,7 @@ class StaffScheduleController
                 }
             }
 
-            // Phân công HDV phụ
+            // ✅ Phân công HDV phụ
             if ($assistant_guide_id) {
                 $result = $this->historyModel->assignStaffToTour($assistant_guide_id, $tour_schedule_id, 'ASSISTANT');
                 if (!$result['ok']) {
@@ -228,13 +315,12 @@ class StaffScheduleController
         }
     }
 
+
     /**
      * ✅ Lấy HDV rảnh (loại trừ HDV đang bận VÀ đã được phán công)
      */
-    private function getAvailableStaffs($depart_date, $return_date, $current_schedule_id = null, $excludeStaffIds = [])
+    public function getAvailableStaffs($depart_date, $return_date, $current_schedule_id = null, $excludeStaffIds = [])
     {
-        // Tạo placeholder cho IN clause
-        $excludePlaceholders = '';
         $params = [
             $current_schedule_id ?? 0,
             $depart_date,
@@ -245,32 +331,38 @@ class StaffScheduleController
             $return_date
         ];
 
+        // ✅ Tạo placeholder cho exclude IDs
+        $excludePlaceholders = '';
         if (!empty($excludeStaffIds)) {
             $excludePlaceholders = ' AND s.id NOT IN (' . implode(',', array_fill(0, count($excludeStaffIds), '?')) . ')';
             $params = array_merge($params, $excludeStaffIds);
         }
 
         $sql = "SELECT s.id, u.full_name, u.email, s.staff_type, s.rating,
-                   -- Kiểm tra xem HDV có lịch trùng không
-                   (SELECT COUNT(*) 
-                    FROM tour_schedule ts2 
-                    WHERE (ts2.guide_id = s.id OR ts2.assistant_guide_id = s.id)
-                      AND ts2.status IN ('OPEN', 'CLOSED')
-                      AND ts2.id != COALESCE(?, 0)
-                      AND (
-                          (ts2.depart_date BETWEEN ? AND ?)
-                          OR (ts2.return_date BETWEEN ? AND ?)
-                          OR (? BETWEEN ts2.depart_date AND ts2.return_date)
-                          OR (? BETWEEN ts2.depart_date AND ts2.return_date)
-                      )
-                   ) as conflict_count
-                FROM staffs s
-                JOIN users u ON u.id = s.user_id
-                WHERE s.status = 'ACTIVE'
-                  AND u.role = 'HDV'
-                  {$excludePlaceholders}
-                HAVING conflict_count = 0
-                ORDER BY s.rating DESC, u.full_name ASC";
+               -- ✅ Kiểm tra xem HDV có TRÙNG LỊCH không
+               (SELECT COUNT(*) 
+                FROM tour_schedule ts2 
+                WHERE (ts2.guide_id = s.id OR ts2.assistant_guide_id = s.id)
+                  AND ts2.status IN ('OPEN', 'CLOSED')
+                  AND ts2.id != COALESCE(?, 0)
+                  AND (
+                      -- Trùng lịch khi:
+                      -- 1. Ngày bắt đầu tour mới nằm giữa tour cũ
+                      (? BETWEEN ts2.depart_date AND ts2.return_date)
+                      -- 2. Ngày kết thúc tour mới nằm giữa tour cũ
+                      OR (? BETWEEN ts2.depart_date AND ts2.return_date)
+                      -- 3. Tour mới bao trùm tour cũ
+                      OR (ts2.depart_date BETWEEN ? AND ?)
+                      OR (ts2.return_date BETWEEN ? AND ?)
+                  )
+               ) as conflict_count
+            FROM staffs s
+            JOIN users u ON u.id = s.user_id
+            WHERE s.status = 'ACTIVE'
+              AND u.role = 'HDV'
+              {$excludePlaceholders}
+            HAVING conflict_count = 0
+            ORDER BY s.rating DESC, u.full_name ASC";
 
         $pdo = $this->staffModel->getConnection();
         $stmt = $pdo->prepare($sql);
@@ -369,8 +461,11 @@ class StaffScheduleController
             exit;
         }
 
-        // Lấy dữ liệu thống kê
-        $performance = $this->getPerformanceData($staff_id);
+        // ✅ TỰ ĐỘNG HOÀN THÀNH TOUR ĐÃ KẾT THÚC
+        $this->historyModel->autoCompleteFinishedTours();
+
+        // ✅ LẤY DỮ LIỆU THỐNG KÊ (CHỈ TOUR ĐÃ HOÀN THÀNH)
+        $performance = $this->historyModel->getPerformanceData($staff_id);
         $history = $this->historyModel->getStaffHistory($staff_id, 20);
         $upcoming = $this->historyModel->getUpcomingTours($staff_id, 5);
 
@@ -383,7 +478,7 @@ class StaffScheduleController
     /**
      * Lấy dữ liệu hiệu suất HDV
      */
-    private function getPerformanceData($staff_id)
+    public function getPerformanceData($staff_id)
     {
         $sql = "SELECT 
                     COUNT(DISTINCT sth.tour_schedule_id) AS total_tours,
@@ -425,5 +520,7 @@ class StaffScheduleController
         ]);
         exit;
     }
+
+
 }
 ?>

@@ -22,8 +22,9 @@ require_once './controllers/admin/ScheduleController.php';
 require_once './controllers/admin/StaffController.php';
 require_once './controllers/admin/UserController.php';
 require_once './controllers/admin/PaymentController.php';
-require_once './controllers/admin/ReportController.php';
+require_once './controllers/admin/TourReportController.php';
 require_once './controllers/admin/ItineraryController.php';
+require_once './controllers/admin/BookingCustomerController.php';
 
 require_once './controllers/admin/StaffScheduleController.php';
 require_once './controllers/admin/StaffCertificateController.php';
@@ -69,8 +70,10 @@ match ($act) {
   'admin-tour-create' => (new TourController())->create($currentAct),
   'admin-tour-store' => (new TourController())->store(),
   'admin-tour-edit' => (new TourController())->edit($currentAct),
+  'admin-tour-detail' => (new TourController())->detail($currentAct),
   'admin-tour-update' => (new TourController())->update(),
   'admin-tour-delete' => (new TourController())->delete(),
+  
 
   // ================= BOOKING ADMIN ===================
   'admin-booking' => (new BookingController())->index($currentAct),
@@ -80,10 +83,23 @@ match ($act) {
   'admin-booking-create' => (new BookingController())->createForm($currentAct),
   'admin-booking-store' => (new BookingController())->store(),
   'admin-booking-confirm' => (new BookingController())->confirm(),
+  'admin-booking-refund' => (new BookingController())->refund(),
+  'admin-booking-complete' => (new BookingController())->complete(),
+  'admin-booking-mark-ready' => (new BookingController())->markReady(),
+  'admin-booking-start-tour' => (new BookingController())->startTour(),
   'admin-booking-detail' => (new BookingController())->detail($currentAct),
   // Xóa item dùng deleteItem()
   'admin-booking-item-delete' => (new BookingController())->deleteItem(),
-
+  
+  // ================= BOOKING-CUSTOMER ADMIN ===================
+  'admin-booking-customer' => (new BookingCustomerController())->index($currentAct),
+  'admin-booking-customer-create' => (new BookingCustomerController())->create($currentAct),
+  'admin-booking-customer-edit' => (new BookingCustomerController())->edit($currentAct),
+  'admin-booking-customer-store' => (new BookingCustomerController())->store(),
+  'admin-booking-customer-update' => (new BookingCustomerController())->update(),
+  'admin-booking-customer-delete' => (new BookingCustomerController())->delete(),
+  'admin-booking-customer-checkin' => (new BookingCustomerController())->checkin(),
+  'admin-booking-customer-undo-checkin' => (new BookingCustomerController())->undoCheckIn(),
 
   // ================= CATEGORY ADMIN ===================
   'admin-category' => (new CategoryController())->index($currentAct),
@@ -95,9 +111,18 @@ match ($act) {
 
   // Lịch làm việc HDV
     'admin-staff-calendar' => (new StaffScheduleController())->calendar($currentAct),
+
+  // Lịch làm việc HDV
+    'admin-staff-cert' => (new StaffCertificateController())->index($currentAct),
+    'admin-staff-cert-create' => (new StaffCertificateController())->create($currentAct),
+    'admin-staff-cert-edit' => (new StaffCertificateController())->edit($currentAct),
+    'admin-staff-cert-store' => (new StaffCertificateController())->store(),
+    'admin-staff-cert-delete' => (new StaffCertificateController())->delete(),
+    'admin-staff-cert-update' => (new StaffCertificateController())->update(),
     
   // Phân công HDV cho tour
     'admin-staff-assign-form' => (new StaffScheduleController())->assignForm($currentAct),
+    'admin-staff-assign-performance' => (new StaffScheduleController())->performance($currentAct),
     'admin-staff-assign-store' => (new StaffScheduleController())->assignStore(),
     'admin-staff-remove-assignment' => (new StaffScheduleController())->removeAssignment(),
     'admin-staff-remove-guide' => (new StaffScheduleController())->removeGuide(),
@@ -129,6 +154,7 @@ match ($act) {
   'admin-staff' => (new StaffController())->index($currentAct),
   'admin-staff-create' => (new StaffController())->create($currentAct),
   'admin-staff-edit' => (new StaffController())->edit($currentAct),
+  'admin-staff-detail' => (new StaffController())->detail($currentAct),
   'admin-staff-store' => (new StaffController())->store(),
   'admin-staff-update' => (new StaffController())->update(),
   'admin-staff-delete' => (new StaffController())->delete(),
@@ -145,14 +171,16 @@ match ($act) {
   // ================= PAYMENT ADMIN ===================
   'admin-payment' => (new PaymentController())->index($currentAct),
   'admin-payment-history' => (new PaymentController())->history($currentAct),
+  'admin-payment-edit' => (new PaymentController())->editForm($currentAct),
   'admin-payment-confirm' => (new PaymentController())->confirm(),
   'admin-payment-cancel' => (new PaymentController())->cancel(),
   'admin-payment-create' => (new PaymentController())->createForm($currentAct),
   'admin-payment-store' => (new PaymentController())->store(),
+  'admin-payment-update' => (new PaymentController())->update(),
 
 
   // ================= REPORT ===================
-  'admin-report' => (new ReportController())->index($currentAct),
+  'admin-report' => (new TourReportController())->index($currentAct),
 
   // ================= ITINERARY (Lịch trình Tour) ===================
   'admin-itinerary-list' => (new ItineraryController())->selectTour($currentAct), 

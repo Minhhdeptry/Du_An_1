@@ -10,7 +10,7 @@ $currentAct = $currentAct ?? '';
     </a>
 
     <a href="?act=admin-tour"
-        class="menu-item <?= (in_array($currentAct, ['admin-tour', 'admin-tour-create', 'admin-tour-edit']) ? 'active' : '') ?>">
+        class="menu-item <?= (in_array($currentAct, ['admin-tour', 'admin-tour-create', 'admin-tour-edit', 'admin-tour-detail']) ? 'active' : '') ?>">
         <i class="fas fa-map menu-icon"></i>
         <span>Quản lý Danh Sách Tour</span>
     </a>
@@ -22,13 +22,13 @@ $currentAct = $currentAct ?? '';
     </a>
 
     <a href="?act=admin-booking"
-        class="menu-item <?= (in_array($currentAct, ['admin-booking', 'admin-booking-create', 'admin-booking-edit', 'admin-booking-detail']) ? 'active' : '') ?>">
+        class="menu-item <?= (in_array($currentAct, ['admin-booking', 'admin-booking-create', 'admin-booking-edit', 'admin-booking-detail', 'admin-booking-customer', 'admin-booking-customer-create', 'admin-booking-customer-edit']) ? 'active' : '') ?>">
         <i class="fas fa-book menu-icon"></i>
         <span>Booking</span>
     </a>
 
     <a href="?act=admin-staff"
-        class="menu-item <?= (in_array($currentAct, ['admin-staff', 'admin-staff-create', 'admin-staff-edit']) ? 'active' : '') ?>">
+        class="menu-item <?= (in_array($currentAct, ['admin-staff', 'admin-staff-create', 'admin-staff-edit','admin-staff-detail','admin-staff-cert', 'admin-staff-cert-create', 'admin-staff-cert-edit', 'admin-staff-cert-detail', 'admin-staff-performance']) ? 'active' : '') ?>">
         <i class="fas fa-user-tie menu-icon"></i>
         <span>Nhân viên</span>
     </a>

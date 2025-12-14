@@ -1,4 +1,4 @@
-<?php 
+<?php
 class StaffCertificateModel
 {
     private $pdo;
@@ -17,7 +17,7 @@ class StaffCertificateModel
         $sql = "SELECT * FROM staff_certificates 
                 WHERE staff_id = ?
                 ORDER BY expiry_date DESC, issue_date DESC";
-        
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$staff_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -32,7 +32,7 @@ class StaffCertificateModel
                 (staff_id, certificate_name, certificate_number, issuing_organization,
                  issue_date, expiry_date, certificate_file, status, notes)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
+
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([
             $data['staff_id'],
@@ -62,7 +62,7 @@ class StaffCertificateModel
                 status = ?,
                 notes = ?
                 WHERE id = ?";
-        
+
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([
             $data['certificate_name'],
@@ -100,16 +100,27 @@ class StaffCertificateModel
      */
     private function calculateStatus($expiry_date)
     {
-        if (!$expiry_date) return 'VALID';
+        // Không có ngày hết hạn
+        if (empty($expiry_date) || $expiry_date === '0000-00-00') {
+            return 'VALID';
+        }
+
+        // Chuyển ngày sang timestamp
+        $expiry = strtotime($expiry_date);
+        if ($expiry === false) {
+            return 'VALID'; // fallback nếu ngày lỗi
+        }
 
         $today = strtotime('today');
-        $expiry = strtotime($expiry_date);
         $days_diff = ($expiry - $today) / 86400;
 
-        if ($days_diff < 0) return 'EXPIRED';
-        if ($days_diff <= 30) return 'PENDING_RENEWAL';
+        if ($days_diff < 0)
+            return 'EXPIRED';
+        if ($days_diff <= 30)
+            return 'PENDING_RENEWAL';
         return 'VALID';
     }
+
 
     /**
      * Lấy chứng chỉ sắp hết hạn
@@ -124,7 +135,7 @@ class StaffCertificateModel
                   AND sc.expiry_date >= CURDATE()
                   AND sc.status IN ('VALID', 'PENDING_RENEWAL')
                 ORDER BY sc.expiry_date ASC";
-        
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$days]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -142,7 +153,7 @@ class StaffCertificateModel
                     ELSE 'VALID'
                 END
                 WHERE expiry_date IS NOT NULL";
-        
+
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute();
     }

@@ -44,20 +44,25 @@ class StaffModel
     public function search($keyword = '', $staff_type = '', $status = '')
     {
         $sql = "SELECT s.*, u.full_name, u.email, u.role
-                FROM staffs s
-                LEFT JOIN users u ON u.id = s.user_id
-                WHERE u.role = 'HDV'";
+            FROM staffs s
+            LEFT JOIN users u ON u.id = s.user_id
+            WHERE u.role = 'HDV'";
 
         $params = [];
 
         if ($keyword !== '') {
             $sql .= " AND (
-                COALESCE(u.full_name, '') LIKE :kw
-                OR COALESCE(u.email, '') LIKE :kw
-                OR COALESCE(s.phone, '') LIKE :kw
-                OR COALESCE(s.id_number, '') LIKE :kw
-            )";
-            $params[':kw'] = "%$keyword%";
+            u.full_name LIKE :kw1
+            OR u.email LIKE :kw2
+            OR s.phone LIKE :kw3
+            OR s.id_number LIKE :kw4
+        )";
+
+            $kw = "%$keyword%";
+            $params[':kw1'] = $kw;
+            $params[':kw2'] = $kw;
+            $params[':kw3'] = $kw;
+            $params[':kw4'] = $kw;
         }
 
         if ($staff_type !== '') {
@@ -76,6 +81,9 @@ class StaffModel
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+
+
 
     /**
      * Thêm mới staff (KHÔNG tự quản lý transaction)
@@ -120,7 +128,7 @@ class StaffModel
 
         if ($result && $lastId > 0) {
             error_log("✅ Staff inserted with ID: $lastId");
-            return (int)$lastId;
+            return (int) $lastId;
         }
 
         error_log("❌ Insert failed");

@@ -314,7 +314,7 @@
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Năm</label>
                     <select name="year" class="form-select">
-                        <?php for ($y = date('Y') - 1; $y <= date('Y') + 2; $y++): ?>
+                        <?php for ($y = date('Y') - 10; $y <= date('Y') + 0; $y++): ?>
                             <option value="<?= $y ?>" <?= ($year == $y) ? 'selected' : '' ?>>
                                 <?= $y ?>
                             </option>

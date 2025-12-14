@@ -32,12 +32,17 @@ class PaymentModel
         'ZALOPAY' => 'ZaloPay',
     ];
 
-    // public function __construct()
+
+    // public function __construct($pdo = null)
     // {
-    //     require_once "./commons/function.php";
-    //     $this->pdo = $pdo;
-    //     // $this->pdo = connectDB();
+    //     if ($pdo) {
+    //         $this->pdo = $pdo;  // Dùng chung kết nối
+    //     } else {
+    //         require_once "./commons/function.php";
+    //         $this->pdo = connectDB();
+    //     }
     // }
+
 
     /** ========================
      *  📋 LẤY TẤT CẢ PAYMENTS
@@ -67,6 +72,31 @@ class PaymentModel
         if (!$this->pdo) {
             throw new Exception("PDO not injected into PaymentModel");
         }
+//         if (!$booking_id || !$total_amount) {
+//             error_log("Invalid data for payment");
+//             return null;
+//         }
+
+//         try {
+//             $payment_code = $this->generatePaymentCode();
+
+//             $sql = "INSERT INTO payments 
+//                 (payment_code, booking_id, amount, type, method, status, created_at)
+//                 VALUES (:code, :booking_id, :amount, 'FULL', 'BANK_TRANSFER', 'PENDING', NOW())";
+
+//             $stmt = $this->pdo->prepare($sql);
+//             $stmt->execute([
+//                 ':code' => $payment_code,
+//                 ':booking_id' => $booking_id,
+//                 ':amount' => $total_amount,
+//             ]);
+
+//             return $this->pdo->lastInsertId();
+
+//         } catch (\Throwable $e) {
+//             error_log("CreateInitialPayment Error: " . $e->getMessage());
+//             return null;
+//         }
 
         $sql = "INSERT INTO payments 
             (booking_id, amount, type, method, status)
@@ -80,6 +110,7 @@ class PaymentModel
 
         return $this->pdo->lastInsertId();
     }
+
 
     /** ========================
      *  💰 TẠO PAYMENT THỦ CÔNG (từ Admin)
@@ -158,6 +189,35 @@ class PaymentModel
         }
     }
 
+    /**
+     * ✅ TẠO PAYMENT HOÀN TIỀN (số âm)
+     */
+    public function createRefundPayment($booking_id, $refundAmount, $reason = '')
+    {
+        try {
+            $paymentCode = 'REF-' . date('ymd') . '-' . rand(1000, 9999);
+
+            $stmt = $this->pdo->prepare("
+            INSERT INTO payments 
+            (booking_id, payment_code, amount, payment_method, payment_date, status, notes)
+            VALUES (?, ?, ?, 'REFUND', NOW(), 'COMPLETED', ?)
+        ");
+
+            // ✅ Số tiền âm để đánh dấu là hoàn tiền
+            $stmt->execute([
+                $booking_id,
+                $paymentCode,
+                -abs($refundAmount), // Luôn âm
+                $reason ?: 'Hoàn tiền'
+            ]);
+
+            return $this->pdo->lastInsertId();
+
+        } catch (\Throwable $e) {
+            error_log("CreateRefundPayment Error: " . $e->getMessage());
+            return null;
+        }
+    }
     /** ========================
      *  📊 TÍNH TỔNG TIỀN ĐÃ THANH TOÁN
      *  ======================== */

@@ -47,24 +47,68 @@ class BookingController
     }
 
     /** ------------------------
-     *  ✅ FIX: Form tạo booking - Lấy tours + adult_price, child_price
+     * Form tạo booking theo schedule
      */
+
     public function createForm(string $act): void
     {
-        // ✅ Lấy danh sách TOUR với GIÁ
-        $tours = $this->getToursList();
+        // Lấy danh sách lịch mở (OPEN)
+        $schedules = $this->bookingModel->getOpenSchedules();
 
-        if (empty($tours)) {
-            $_SESSION['error'] = "⚠️ Chưa có tour nào trong hệ thống!";
+        if (empty($schedules)) {
+            $_SESSION['error'] = "⚠️ Chưa có lịch tour nào đang mở!";
             header("Location: index.php?act=admin-tour");
             exit;
         }
 
-        $pageTitle = "Tạo Booking (Tour theo yêu cầu)";
+        // ✅ FIX: Kiểm tra và set lại is_custom_request ĐÚNG
+        foreach ($schedules as &$schedule) {
+            $schedule_id = $schedule['id'];
+
+            // ✅ Lấy từ DB để đảm bảo chính xác
+            $stmt = $this->bookingModel->getConnection()->prepare("
+            SELECT 
+                ts.is_custom_request,
+                ts.seats_total,
+                t.is_custom
+            FROM tour_schedule ts
+            LEFT JOIN tours t ON t.id = ts.tour_id
+            WHERE ts.id = ?
+        ");
+            $stmt->execute([$schedule_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($result) {
+                // ✅ LOGIC ĐÚNG: Tour custom = is_custom_request = 1 HOẶC tour.is_custom = 1
+                $isScheduleCustom = (int) ($result['is_custom_request'] ?? 0) === 1;
+                $isTourCustom = (int) ($result['is_custom'] ?? 0) === 1;
+                $seatsTotal = (int) ($result['seats_total'] ?? 0);
+
+                // ✅ CHUẨN HÓA: Nếu seats_total = 0 → CHẮC CHẮN là custom
+                if ($seatsTotal === 0) {
+                    $schedule['is_custom_request'] = 1;
+                } else {
+                    $schedule['is_custom_request'] = ($isScheduleCustom || $isTourCustom) ? 1 : 0;
+                }
+
+                // Debug
+                error_log(sprintf(
+                    "Schedule #%d: %s | Original is_custom_request=%d | Seats=%d | Final is_custom_request=%d",
+                    $schedule_id,
+                    $schedule['tour_title'],
+                    (int) $result['is_custom_request'],
+                    $seatsTotal,
+                    $schedule['is_custom_request']
+                ));
+            }
+        }
+
+        $pageTitle = "Tạo Booking theo lịch khởi hành";
         $currentAct = $act;
         $view = "views/admin/Booking/create.php";
         include "./views/layout/adminLayout.php";
     }
+
 
     /** ------------------------
      *  ✅ FIX: Helper - Lấy tours kèm giá adult_price, child_price
@@ -183,15 +227,13 @@ class BookingController
             exit;
         }
 
-        // ✅ Kiểm tra xem có phải custom request không
-        if (empty($booking['is_custom_request'])) {
-            $_SESSION['error'] = "⚠️ Chỉ được sửa booking cho tour theo yêu cầu!";
-            header("Location: index.php?act=admin-booking");
-            exit;
-        }
+        // ✅ THÊM: Lấy trạng thái thanh toán
+        $booking['payment_status'] = $this->bookingModel->getPaymentStatus($id);
 
-        // ✅ Lấy dữ liệu liên quan
-        $schedules = $this->bookingModel->getSchedules();
+        // ✅ Lấy danh sách lịch tour mở (OPEN) cho dropdown chọn schedule
+        $schedules = $this->bookingModel->getOpenSchedules();
+
+        // ✅ Lấy items, lịch sử trạng thái, trạng thái text
         $items = $this->itemModel->getItemsByBooking($id);
         $statusHistory = $this->bookingModel->getStatusHistory($id);
         $statusText = BookingModel::$statusLabels;
@@ -202,6 +244,8 @@ class BookingController
         include "./views/layout/adminLayout.php";
     }
 
+
+
     /** ------------------------
      *  Xử lý cập nhật booking
      */
@@ -211,10 +255,12 @@ class BookingController
         $author_id = $_SESSION['user_id'] ?? null;
 
         $data = $_POST;
+
+        // ✅ Gọi model để xử lý update (đã có validation đầy đủ trong model)
         $res = $this->bookingModel->update($id, $data, $author_id);
 
         if ($res['ok'] ?? false) {
-            // ✅ Xử lý items
+            // ✅ Xử lý items (dịch vụ bổ sung)
             $this->handleBookingItems($id, $data);
 
             $_SESSION['success'] = "✅ Cập nhật booking thành công!";
@@ -249,7 +295,7 @@ class BookingController
     }
 
     /** ------------------------
-     *  Xác nhận booking (PENDING → CONFIRMED)
+     *  Xác nhận booking (PENDING → CONFIRMED) 
      */
     public function confirm(): void
     {
@@ -259,7 +305,7 @@ class BookingController
         $res = $this->bookingModel->confirmBooking($id, $author_id);
 
         if ($res['ok'] ?? false) {
-            $_SESSION['success'] = "✅ Đã xác nhận booking thành công!";
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Đã xác nhận booking');
         } else {
             $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Xác nhận thất bại']);
         }
@@ -268,6 +314,78 @@ class BookingController
         exit;
     }
 
+    public function startTour(): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $res = $this->bookingModel->startTour($id, $author_id);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Tour đã bắt đầu');
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Bắt đầu tour thất bại']);
+        }
+
+        header("Location: index.php?act=admin-booking-detail&id={$id}");
+        exit;
+    }
+
+    /** ------------------------
+     *  ✅ HOÀN TẤT TOUR (IN_PROGRESS → COMPLETED)
+     */
+    public function complete(): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $res = $this->bookingModel->markAsCompleted($id, $author_id);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Tour đã hoàn tất');
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Hoàn tất thất bại']);
+        }
+
+        header("Location: index.php?act=admin-booking");
+        exit;
+    }
+
+    public function refund(): void
+    {
+        $id = (int) ($_POST['booking_id'] ?? $_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $refundAmount = (float) ($_POST['refund_amount'] ?? 0);
+        $reason = trim($_POST['refund_reason'] ?? '');
+
+        $res = $this->bookingModel->refund($id, $author_id, $refundAmount, $reason);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Đã hoàn tiền thành công');
+            header("Location: index.php?act=admin-booking");
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Hoàn tiền thất bại']);
+            header("Location: index.php?act=admin-booking-detail&id={$id}");
+        }
+        exit;
+    }
+    public function markReady(): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        $author_id = $_SESSION['user_id'] ?? null;
+
+        $res = $this->bookingModel->markAsReady($id, $author_id);
+
+        if ($res['ok'] ?? false) {
+            $_SESSION['success'] = "✅ " . ($res['message'] ?? 'Đã chuyển sang Sẵn sàng');
+        } else {
+            $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Chuyển trạng thái thất bại']);
+        }
+
+        header("Location: index.php?act=admin-booking-detail&id={$id}");
+        exit;
+    }
     /** ------------------------
      *  Xem chi tiết booking
      */
