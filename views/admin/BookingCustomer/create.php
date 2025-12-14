@@ -59,11 +59,11 @@ unset($_SESSION['old_data']);
                         👨 Người lớn (từ 12 tuổi trở lên)
                     </option>
                     <option value="CHILD" <?= ($old['customer_type'] ?? '') === 'CHILD' ? 'selected' : '' ?>>
-                        👦 Trẻ em (2-11 tuổi)
+                        👦 Trẻ em (từ 12 tuổi trở xuống)
                     </option>
-                    <option value="INFANT" <?= ($old['customer_type'] ?? '') === 'INFANT' ? 'selected' : '' ?>>
+                    <!-- <option value="INFANT" <?= ($old['customer_type'] ?? '') === 'INFANT' ? 'selected' : '' ?>>
                         👶 Em bé (dưới 2 tuổi)
-                    </option>
+                    </option> -->
                 </select>
             </div>
 
