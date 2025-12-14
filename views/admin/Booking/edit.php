@@ -1,22 +1,37 @@
-<!-- views/admin/Booking/edit.php - HOÀN CHỈNH FINAL -->
+<!-- views/admin/Booking/edit.php - CHẾ ĐỘ SỬA THÔNG MINH -->
 <?php
 $old = $_SESSION['old_data'] ?? [];
 unset($_SESSION['old_data']);
 
-// ✅ FIX: Kiểm tra is_custom_request từ tour_schedule (không phải từ booking)
-// Query này phải lấy is_custom_request từ join với tour_schedule
+// ✅ XÁC ĐỊNH CẤP ĐỘ SỬA
 $isCustom = isset($booking['is_custom_request']) && (int)$booking['is_custom_request'] === 1;
 $isFinished = in_array($booking['status'], ['COMPLETED', 'CANCELED', 'REFUNDED']);
 $isPastDate = !empty($booking['depart_date']) && strtotime($booking['depart_date']) < strtotime('today');
-$canEditFull = $isCustom || $isFinished || $isPastDate;
-
 $paymentStatus = $booking['payment_status'] ?? 'PENDING';
+$isFullPaid = ($paymentStatus === 'FULL_PAID');
+$isInProgress = ($booking['status'] === 'IN_PROGRESS');
 
-// 🔍 DEBUG - Xóa sau khi fix xong
-// echo "<!-- DEBUG: is_custom_request = " . ($booking['is_custom_request'] ?? 'NULL') . " | isCustom = " . ($isCustom ? 'true' : 'false') . " -->";
+// 🎯 3 CẤP ĐỘ SỬA
+if ($isCustom || $isFinished || $isPastDate) {
+    $editMode = 'FULL'; // Sửa tất cả
+    $editLabel = '✅ Chế độ sửa đầy đủ';
+    $editColor = 'success';
+    $editReason = $isCustom ? 'Tour theo yêu cầu' : ($isFinished ? 'Booking đã kết thúc' : 'Tour đã qua ngày khởi hành');
+} elseif ($isFullPaid && $isInProgress) {
+    $editMode = 'VIEW_ONLY'; // Chỉ xem
+    $editLabel = '🔒 Chế độ chỉ xem';
+    $editColor = 'secondary';
+    $editReason = 'Tour đang diễn ra và đã thanh toán đủ';
+} else {
+    $editMode = 'LIMITED'; // Sửa giới hạn
+    $editLabel = '⚠️ Chế độ sửa có giới hạn';
+    $editColor = 'warning';
+    $editReason = 'Tour thường đang hoạt động';
+}
 ?>
 
 <div class="container mt-4">
+    <!-- HEADER -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="page-title">✏️ Sửa Booking #<?= htmlspecialchars($booking['booking_code']) ?></h2>
         <div>
@@ -27,6 +42,7 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
         </div>
     </div>
 
+    <!-- ALERTS -->
     <?php if (isset($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
             <?= $_SESSION['error'] ?>
@@ -44,124 +60,123 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
     <?php endif; ?>
 
     <!-- ✅ THÔNG BÁO CHẾ ĐỘ SỬA -->
-    <?php if (!$canEditFull): ?>
-        <div class="alert alert-warning shadow-sm">
-            <div class="d-flex align-items-start">
-                <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
-                <div>
-                    <h5 class="alert-heading mb-2">⚠️ Chế độ sửa hạn chế</h5>
-                    <p class="mb-2"><strong>Booking tour thường đang hoạt động</strong></p>
-                    <ul class="mb-2">
-                        <li><strong class="text-success">✅ Có thể sửa:</strong> Thông tin khách, Trạng thái, Yêu cầu đặc biệt, Dịch vụ bổ sung</li>
-                        <li><strong class="text-danger">❌ Không thể sửa:</strong> Tour, Số người, Giá, Ngày đi</li>
+    <div class="alert alert-<?= $editColor ?> shadow-sm">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-<?= $editMode === 'FULL' ? 'check-circle-fill' : ($editMode === 'VIEW_ONLY' ? 'lock-fill' : 'exclamation-triangle-fill') ?> fs-3 me-3"></i>
+            <div class="flex-grow-1">
+                <h5 class="alert-heading mb-2"><?= $editLabel ?></h5>
+                <p class="mb-2"><strong>Lý do:</strong> <?= $editReason ?></p>
+                
+                <?php if ($editMode === 'FULL'): ?>
+                    <ul class="mb-0">
+                        <li>✅ Có thể sửa <strong>TẤT CẢ</strong> thông tin</li>
+                        <li>✅ Đổi tour, giá, số người, ngày đi</li>
                     </ul>
-                    <small class="text-muted">💡 <strong>Lý do:</strong> Tour đã được xác nhận và đang chạy. Muốn thay đổi → Hủy và tạo booking mới.</small>
-                </div>
+                
+                <?php elseif ($editMode === 'LIMITED'): ?>
+                    <ul class="mb-2">
+                        <li>✅ <strong>Có thể sửa:</strong> Tour, Giá, Số người (nếu còn chỗ), Thông tin khách</li>
+                        <li>⚠️ <strong>Lưu ý:</strong> Hệ thống sẽ kiểm tra tính khả thi trước khi lưu</li>
+                    </ul>
+                    <div class="alert alert-info mb-0 mt-2">
+                        <i class="bi bi-lightbulb-fill"></i>
+                        <strong>Mẹo:</strong> Nếu cần thay đổi lớn → Hủy booking này và tạo booking mới
+                    </div>
+                
+                <?php else: // VIEW_ONLY ?>
+                    <ul class="mb-2">
+                        <li>✅ <strong>Có thể sửa:</strong> Thông tin khách, Ghi chú</li>
+                        <li>❌ <strong>Không thể sửa:</strong> Tour, Giá, Số người (Tour đang diễn ra + Đã thanh toán đủ)</li>
+                    </ul>
+                    <div class="alert alert-danger mb-0 mt-2">
+                        <i class="bi bi-shield-fill-exclamation"></i>
+                        <strong>Bảo vệ dữ liệu:</strong> Booking này đã khóa để tránh thay đổi trong khi tour đang chạy
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
-    <?php else: ?>
-        <div class="alert alert-info shadow-sm">
-            <i class="bi bi-info-circle-fill"></i>
-            <strong>Chế độ sửa đầy đủ</strong> - Có thể sửa mọi thông tin vì:
-            <?php if ($isCustom): ?>
-                <span class="badge bg-success">🎯 Tour theo yêu cầu</span>
-            <?php elseif ($isFinished): ?>
-                <span class="badge bg-secondary">✅ Booking đã kết thúc</span>
-            <?php elseif ($isPastDate): ?>
-                <span class="badge bg-warning text-dark">⏰ Tour đã qua ngày khởi hành</span>
-            <?php endif; ?>
-        </div>
-    <?php endif; ?>
+    </div>
 
     <form action="index.php?act=admin-booking-update" method="POST" id="bookingForm">
         <input type="hidden" name="id" value="<?= $booking['id'] ?>">
+        <input type="hidden" name="edit_mode" value="<?= $editMode ?>">
 
         <!-- =============================================
-             🎯 CHỌN TOUR (CHỈ HIỆN KHI canEditFull = true)
+             🎯 CHỌN TOUR
              ============================================= -->
-        <?php if ($canEditFull): ?>
+        <?php if ($editMode !== 'VIEW_ONLY'): ?>
             <div class="card mb-3 shadow-sm border-primary">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Loại Tour</h5>
+                    <h5 class="mb-0">
+                        <i class="bi bi-calendar-check"></i> Chọn Tour
+                        <?php if ($editMode === 'LIMITED'): ?>
+                            <span class="badge bg-warning text-dark float-end">Có thể đổi tour</span>
+                        <?php endif; ?>
+                    </h5>
                 </div>
                 <div class="card-body">
-                    <div class="btn-group w-100 mb-3" role="group">
-                        <input type="radio" class="btn-check" name="tour_mode" id="mode_existing" 
-                            value="existing" <?= !$isCustom ? 'checked' : '' ?> onclick="switchMode('existing')">
-                        <label class="btn btn-outline-primary btn-lg" for="mode_existing">
-                            <i class="bi bi-calendar-check"></i> Tour có sẵn
+                    <?php if ($isCustom): ?>
+                        <!-- Tour custom: Hiển thị info -->
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-star-fill"></i>
+                            <strong>Tour theo yêu cầu:</strong> <?= htmlspecialchars($booking['tour_name']) ?>
+                        </div>
+                        <input type="hidden" name="tour_schedule_id" value="<?= $booking['tour_schedule_id'] ?>">
+                    <?php else: ?>
+                        <!-- Tour thường: Cho chọn lại -->
+                        <label class="form-label fw-bold">
+                            Lịch tour <span class="text-danger">*</span>
                         </label>
-
-                        <input type="radio" class="btn-check" name="tour_mode" id="mode_custom" 
-                            value="custom" <?= $isCustom ? 'checked' : '' ?> onclick="switchMode('custom')">
-                        <label class="btn btn-outline-success btn-lg" for="mode_custom">
-                            <i class="bi bi-pencil-square"></i> Tour theo yêu cầu
-                        </label>
-                    </div>
-
-                    <!-- Mode 1: Chọn tour có sẵn -->
-                    <div id="existingTourSection" style="<?= $isCustom ? 'display:none;' : '' ?>">
-                        <label class="form-label fw-bold">Chọn lịch tour</label>
-                        <select name="tour_schedule_id" id="tour_schedule_select" class="form-select form-select-lg">
-                            <option value="">-- Chọn lịch tour --</option>
+                        <select name="tour_schedule_id" id="tour_schedule_select" 
+                                class="form-select form-select-lg" required>
                             <?php foreach ($schedules as $sc): ?>
                                 <?php
                                 $tourTitle = htmlspecialchars($sc['tour_title'] ?? '');
                                 $category = htmlspecialchars($sc['category_name'] ?? '');
                                 $departDate = date('d/m/Y', strtotime($sc['depart_date']));
-                                $duration = (int) ($sc['duration_days'] ?? 0);
-                                $priceAdult = (float) ($sc['price_adult'] ?? 0);
-                                $priceChildren = (float) ($sc['price_children'] ?? 0);
-                                $seatsAvail = (int) ($sc['seats_available'] ?? 0);
+                                $duration = (int)($sc['duration_days'] ?? 0);
+                                $priceAdult = (float)($sc['price_adult'] ?? 0);
+                                $priceChildren = (float)($sc['price_children'] ?? 0);
+                                $seatsAvail = (int)($sc['seats_available'] ?? 0);
+                                $seatsTotal = (int)($sc['seats_total'] ?? 0);
+                                $disabled = ($seatsAvail <= 0) ? 'disabled' : '';
+                                $isSelected = ($booking['tour_schedule_id'] == $sc['id']);
                                 ?>
                                 <option value="<?= $sc['id'] ?>" 
                                     data-price-adult="<?= $priceAdult ?>"
                                     data-price-children="<?= $priceChildren ?>"
-                                    <?= $booking['tour_schedule_id'] == $sc['id'] ? 'selected' : '' ?>>
-                                    [<?= $category ?>] <?= $tourTitle ?> - <?= $departDate ?> (Còn <?= $seatsAvail ?> chỗ)
+                                    data-seats-available="<?= $seatsAvail ?>"
+                                    data-seats-total="<?= $seatsTotal ?>"
+                                    <?= $isSelected ? 'selected' : '' ?>
+                                    <?= $disabled ?>>
+                                    [<?= $category ?>] <?= $tourTitle ?> - <?= $departDate ?>
+                                    (Còn <?= $seatsAvail ?>/<?= $seatsTotal ?> chỗ)
+                                    - <?= number_format($priceAdult) ?>đ/NL
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <small class="text-muted">Giá sẽ tự động điền khi chọn lịch</small>
-                    </div>
-
-                    <!-- Mode 2: Tour theo yêu cầu -->
-                    <div id="customTourSection" style="<?= !$isCustom ? 'display:none;' : '' ?>">
-                        <div class="alert alert-info">
-                            <i class="bi bi-star-fill"></i>
-                            <strong>Tour theo yêu cầu hiện tại:</strong> <?= htmlspecialchars($booking['tour_name']) ?>
-                        </div>
-                        <input type="hidden" name="tour_schedule_id" value="<?= $booking['tour_schedule_id'] ?>">
-                        <input type="hidden" name="is_custom_request" value="1">
-                    </div>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="bi bi-info-circle"></i>
+                            Giá và số chỗ sẽ tự động cập nhật khi chọn tour
+                        </small>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php else: ?>
-            <!-- Không cho đổi tour → Hidden field -->
+            <!-- VIEW_ONLY: Chỉ hiển thị -->
             <input type="hidden" name="tour_schedule_id" value="<?= $booking['tour_schedule_id'] ?>">
-            
             <div class="card mb-3 shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-geo-alt-fill"></i> Thông tin Tour</h5>
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-lock-fill"></i> Thông tin Tour (Đã khóa)</h5>
                 </div>
                 <div class="card-body">
                     <div class="input-group input-group-lg">
                         <span class="input-group-text bg-light">
-                            <?= $isCustom ? '<i class="bi bi-star-fill text-warning"></i>' : '<i class="bi bi-calendar-check text-primary"></i>' ?>
+                            <i class="bi bi-calendar-check text-primary"></i>
                         </span>
                         <input type="text" class="form-control bg-light fw-bold" 
-                            value="<?= htmlspecialchars($booking['tour_name']) ?>" readonly tabindex="-1">
+                            value="<?= htmlspecialchars($booking['tour_name']) ?>" readonly>
                     </div>
-                    <?php if ($isCustom): ?>
-                        <small class="text-success">
-                            <i class="bi bi-star-fill"></i> Tour theo yêu cầu - Không giới hạn chỗ
-                        </small>
-                    <?php else: ?>
-                        <small class="text-primary">
-                            <i class="bi bi-people-fill"></i> Tour thường - 
-                            Còn <?= (int)($booking['seats_available'] ?? 0) ?>/<?= (int)($booking['seats_total'] ?? 0) ?> chỗ
-                        </small>
-                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>
@@ -176,31 +191,25 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-calendar-event"></i> Ngày khởi hành
-                        </label>
+                        <label class="form-label fw-bold">Ngày khởi hành</label>
                         <input type="date" name="depart_date" 
-                            class="form-control form-control-lg <?= !$canEditFull ? 'bg-light' : '' ?>"
+                            class="form-control form-control-lg <?= $editMode === 'VIEW_ONLY' ? 'bg-light' : '' ?>"
                             value="<?= htmlspecialchars($booking['depart_date'] ?? '') ?>" 
-                            <?= !$canEditFull ? 'readonly onclick="return false;"' : 'min="' . date('Y-m-d') . '"' ?>>
+                            <?= $editMode === 'VIEW_ONLY' ? 'readonly' : 'min="' . date('Y-m-d') . '"' ?>>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-calendar-check"></i> Ngày về
-                        </label>
+                        <label class="form-label fw-bold">Ngày về</label>
                         <?php
                         $returnDate = $booking['return_date'] ?? '';
                         if (empty($returnDate) && !empty($booking['depart_date']) && !empty($booking['duration_days'])) {
-                            $departTimestamp = strtotime($booking['depart_date']);
-                            $duration = (int)$booking['duration_days'];
-                            $returnTimestamp = strtotime("+{$duration} days", $departTimestamp);
+                            $returnTimestamp = strtotime("+{$booking['duration_days']} days", strtotime($booking['depart_date']));
                             $returnDate = date('Y-m-d', $returnTimestamp);
                         }
                         ?>
                         <input type="date" name="return_date" 
-                            class="form-control form-control-lg <?= !$canEditFull ? 'bg-light' : '' ?>"
+                            class="form-control form-control-lg <?= $editMode === 'VIEW_ONLY' ? 'bg-light' : '' ?>"
                             value="<?= htmlspecialchars($returnDate) ?>" 
-                            <?= !$canEditFull ? 'readonly onclick="return false;"' : 'min="' . date('Y-m-d') . '"' ?>>
+                            <?= $editMode === 'VIEW_ONLY' ? 'readonly' : 'min="' . date('Y-m-d') . '"' ?>>
                     </div>
                 </div>
             </div>
@@ -211,34 +220,35 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
              ============================================= -->
         <div class="card mb-3 shadow-sm">
             <div class="card-header bg-success text-white">
-                <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Giá Tour</h5>
+                <h5 class="mb-0">
+                    <i class="bi bi-cash-stack"></i> Giá Tour
+                    <?php if ($editMode === 'LIMITED'): ?>
+                        <span class="badge bg-warning text-dark float-end">Có thể điều chỉnh</span>
+                    <?php endif; ?>
+                </h5>
             </div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-person-fill"></i> Giá người lớn (VNĐ)
-                        </label>
+                        <label class="form-label fw-bold">Giá người lớn (VNĐ) <span class="text-danger">*</span></label>
                         <input type="number" name="price_adult" id="price_adult" 
-                            class="form-control form-control-lg <?= !$canEditFull ? 'bg-light' : '' ?>"
+                            class="form-control form-control-lg <?= $editMode === 'VIEW_ONLY' ? 'bg-light' : '' ?>"
                             value="<?= htmlspecialchars($booking['price_adult'] ?? '0') ?>" 
-                            min="0" step="1000" 
-                            <?= !$canEditFull ? 'readonly' : 'oninput="updateTotals()"' ?>>
+                            min="0" step="1000" required
+                            <?= $editMode === 'VIEW_ONLY' ? 'readonly' : 'oninput="updateTotals()"' ?>>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-person-hearts"></i> Giá trẻ em (VNĐ)
-                        </label>
+                        <label class="form-label fw-bold">Giá trẻ em (VNĐ)</label>
                         <input type="number" name="price_children" id="price_children" 
-                            class="form-control form-control-lg <?= !$canEditFull ? 'bg-light' : '' ?>"
+                            class="form-control form-control-lg <?= $editMode === 'VIEW_ONLY' ? 'bg-light' : '' ?>"
                             value="<?= htmlspecialchars($booking['price_children'] ?? '0') ?>" 
-                            min="0" step="1000" 
-                            <?= !$canEditFull ? 'readonly' : 'oninput="updateTotals()"' ?>>
+                            min="0" step="1000"
+                            <?= $editMode === 'VIEW_ONLY' ? 'readonly' : 'oninput="updateTotals()"' ?>>
                     </div>
                 </div>
-                <?php if ($canEditFull): ?>
+                <?php if ($editMode !== 'VIEW_ONLY'): ?>
                     <small class="text-muted mt-2 d-block">
-                        <i class="bi bi-info-circle"></i> Tự động điền khi chọn lịch tour, có thể chỉnh sửa
+                        <i class="bi bi-info-circle"></i> Tự động điền khi chọn tour, có thể chỉnh sửa
                     </small>
                 <?php endif; ?>
             </div>
@@ -254,23 +264,17 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
             <div class="card-body">
                 <div class="row mb-3">
                     <div class="col-md-4">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-person-circle"></i> Họ tên <span class="text-danger">*</span>
-                        </label>
+                        <label class="form-label fw-bold">Họ tên <span class="text-danger">*</span></label>
                         <input type="text" name="contact_name" class="form-control form-control-lg"
                             value="<?= htmlspecialchars($booking['contact_name']) ?>" required>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-telephone-fill"></i> Điện thoại
-                        </label>
+                        <label class="form-label fw-bold">Điện thoại</label>
                         <input type="text" name="contact_phone" class="form-control form-control-lg"
                             value="<?= htmlspecialchars($booking['contact_phone']) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-envelope-fill"></i> Email
-                        </label>
+                        <label class="form-label fw-bold">Email</label>
                         <input type="email" name="contact_email" class="form-control form-control-lg"
                             value="<?= htmlspecialchars($booking['contact_email'] ?? '') ?>">
                     </div>
@@ -279,29 +283,29 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
                 <div class="row">
                     <div class="col-md-4">
                         <label class="form-label fw-bold">
-                            <i class="bi bi-people-fill"></i> Người lớn
+                            Người lớn
+                            <?php if ($editMode === 'LIMITED'): ?>
+                                <i class="bi bi-exclamation-triangle-fill text-warning" 
+                                   title="Thay đổi sẽ check chỗ trống"></i>
+                            <?php endif; ?>
                         </label>
                         <input type="number" name="adults" id="adults" 
-                            class="form-control form-control-lg text-center fw-bold <?= !$canEditFull ? 'bg-light' : '' ?>"
-                            value="<?= $booking['adults'] ?>" min="0" 
-                            <?= !$canEditFull ? 'readonly' : 'required oninput="updateTotals()"' ?>>
+                            class="form-control form-control-lg text-center fw-bold <?= $editMode === 'VIEW_ONLY' ? 'bg-light' : '' ?>"
+                            value="<?= $booking['adults'] ?>" min="0" required
+                            <?= $editMode === 'VIEW_ONLY' ? 'readonly' : 'oninput="updateTotals()"' ?>>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-person-hearts"></i> Trẻ em
-                        </label>
+                        <label class="form-label fw-bold">Trẻ em</label>
                         <input type="number" name="children" id="children" 
-                            class="form-control form-control-lg text-center fw-bold <?= !$canEditFull ? 'bg-light' : '' ?>"
-                            value="<?= $booking['children'] ?>" min="0" 
-                            <?= !$canEditFull ? 'readonly' : 'oninput="updateTotals()"' ?>>
+                            class="form-control form-control-lg text-center fw-bold <?= $editMode === 'VIEW_ONLY' ? 'bg-light' : '' ?>"
+                            value="<?= $booking['children'] ?>" min="0"
+                            <?= $editMode === 'VIEW_ONLY' ? 'readonly' : 'oninput="updateTotals()"' ?>>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-calculator-fill"></i> Tổng người
-                        </label>
+                        <label class="form-label fw-bold">Tổng người</label>
                         <input type="number" id="total_people" 
                             class="form-control form-control-lg text-center fw-bold bg-light text-primary"
-                            value="<?= $booking['total_people'] ?>" readonly tabindex="-1">
+                            value="<?= $booking['total_people'] ?>" readonly>
                     </div>
                 </div>
             </div>
@@ -317,9 +321,7 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-bookmark-star"></i> Trạng thái Booking
-                        </label>
+                        <label class="form-label fw-bold">Trạng thái Booking</label>
                         <select name="status" class="form-select form-select-lg" id="booking_status">
                             <?php foreach (BookingModel::$statusLabels as $key => $label): ?>
                                 <option value="<?= $key ?>" <?= $booking['status'] === $key ? 'selected' : '' ?>>
@@ -327,36 +329,19 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        
-                        <?php if ($paymentStatus !== 'FULL_PAID'): ?>
-                        <small class="text-danger d-none" id="completed_warning">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <strong>Cảnh báo:</strong> Chưa thanh toán đủ!
-                        </small>
-                        <?php endif; ?>
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-credit-card-fill"></i> Trạng thái Thanh toán
-                        </label>
-                        <div class="form-control form-select-lg bg-light d-flex align-items-center justify-content-between" 
-                            style="height: auto; padding: 0.75rem;">
-                            <div>
-                                <?php
-                                $badge = match ($paymentStatus) {
-                                    'FULL_PAID' => '<span class="badge bg-success fs-5"><i class="bi bi-check-circle-fill"></i> Đã thanh toán đủ</span>',
-                                    'DEPOSIT_PAID' => '<span class="badge bg-info fs-5"><i class="bi bi-coin"></i> Đã cọc</span>',
-                                    default => '<span class="badge bg-secondary fs-5"><i class="bi bi-hourglass-split"></i> Chưa thanh toán</span>'
-                                };
-                                echo $badge;
-                                ?>
-                            </div>
-                            <small>
-                                <a href="index.php?act=admin-booking-detail&id=<?= $booking['id'] ?>" class="text-decoration-none">
-                                    <i class="bi bi-box-arrow-up-right"></i> Chi tiết
-                                </a>
-                            </small>
+                        <label class="form-label fw-bold">Trạng thái Thanh toán</label>
+                        <div class="form-control form-select-lg bg-light">
+                            <?php
+                            $badge = match ($paymentStatus) {
+                                'FULL_PAID' => '<span class="badge bg-success fs-5">💰 Đã thanh toán đủ</span>',
+                                'DEPOSIT_PAID' => '<span class="badge bg-info fs-5">💵 Đã cọc</span>',
+                                default => '<span class="badge bg-secondary fs-5">⏸️ Chưa thanh toán</span>'
+                            };
+                            echo $badge;
+                            ?>
                         </div>
                     </div>
                 </div>
@@ -372,7 +357,7 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
             </div>
             <div class="card-body">
                 <textarea name="special_request" class="form-control form-control-lg" rows="3" 
-                    placeholder="Ghi chú đặc biệt từ khách hàng..."><?= htmlspecialchars($booking['special_request'] ?? '') ?></textarea>
+                    placeholder="Ghi chú đặc biệt..."><?= htmlspecialchars($booking['special_request'] ?? '') ?></textarea>
             </div>
         </div>
 
@@ -399,14 +384,8 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
                                         <label class="form-label fw-bold small">Loại</label>
                                         <select name="items[<?= $idx ?>][type]" class="form-select">
                                             <?php
-                                            $types = [
-                                                'SERVICE' => '🔧 Dịch vụ', 
-                                                'MEAL' => '🍽️ Bữa ăn', 
-                                                'ROOM' => '🏨 Phòng đơn', 
-                                                'INSURANCE' => '🛡️ Bảo hiểm', 
-                                                'TRANSPORT' => '🚗 Vận chuyển', 
-                                                'OTHER' => '📦 Khác'
-                                            ];
+                                            $types = ['SERVICE' => '🔧 Dịch vụ', 'MEAL' => '🍽️ Bữa ăn', 'ROOM' => '🏨 Phòng đơn', 
+                                                      'INSURANCE' => '🛡️ Bảo hiểm', 'TRANSPORT' => '🚗 Vận chuyển', 'OTHER' => '📦 Khác'];
                                             foreach ($types as $k => $v):
                                             ?>
                                                 <option value="<?= $k ?>" <?= $item['type'] == $k ? 'selected' : '' ?>><?= $v ?></option>
@@ -425,7 +404,7 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
                                     </div>
                                     <div class="col-md-1">
                                         <button type="button" class="btn btn-danger w-100"
-                                            onclick="this.closest('.item-row').remove(); updateTotals();" title="Xóa">
+                                            onclick="this.closest('.item-row').remove(); updateTotals();">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
@@ -450,11 +429,11 @@ $paymentStatus = $booking['payment_status'] ?? 'PENDING';
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex justify-content-between mb-2">
                             <span class="fw-bold">Tiền tour:</span>
                             <span class="fs-5 text-primary"><span id="tour_amount">0</span> đ</span>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between">
                             <span class="fw-bold">Dịch vụ bổ sung:</span>
                             <span class="fs-5 text-info"><span id="items_amount">0</span> đ</span>
                         </div>

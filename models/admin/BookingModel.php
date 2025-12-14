@@ -325,7 +325,7 @@ class BookingModel
     }
 
     /** ========================
-     *  ✅ CẬP NHẬT BOOKING
+     *  ✅ CẬP NHẬT BOOKING - HỖ TRỢ 3 CHẾ ĐỘ SỬA
      *  ======================== */
     public function update($id, $data, $author_id = null)
     {
@@ -333,6 +333,18 @@ class BookingModel
         $old = $this->find($id);
         if (!$old) {
             return ['ok' => false, 'errors' => ['Booking không tồn tại']];
+        }
+
+        // ✅ Xác định chế độ sửa từ frontend
+        $editMode = $data['edit_mode'] ?? 'LIMITED';
+
+        // =========================================================
+        // 🎯 XỬ LÝ THEO CHẾ ĐỘ
+        // =========================================================
+
+        if ($editMode === 'VIEW_ONLY') {
+            // 🔒 CHẾ ĐỘ CHỈ XEM - Chỉ cho sửa contact info
+            return $this->updateContactInfoOnly($id, $data, $old, $author_id);
         }
 
         // ✅ Validate dữ liệu cơ bản
@@ -352,142 +364,114 @@ class BookingModel
             return ['ok' => false, 'errors' => ['Lịch tour không hợp lệ']];
         }
 
-        // ✅ Kiểm tra schedule có tồn tại trong DB không
         $stmt = $this->pdo->prepare("SELECT id FROM tour_schedule WHERE id = ? LIMIT 1");
         $stmt->execute([$schedule_id]);
         if (!$stmt->fetch()) {
             return ['ok' => false, 'errors' => ['Lịch tour không tồn tại trong hệ thống']];
         }
 
-        // ✅ Kiểm tra xem đây có phải tour custom không
+        // ✅ Kiểm tra tour custom
         $isCustom = $this->isCustomRequest($schedule_id);
 
         // =========================================================
-        // 🔥 LOGIC THÔNG MINH: Phân biệt các trường hợp
+        // 🔥 LOGIC THEO CHẾ ĐỘ SỬA
         // =========================================================
 
-        $canEditFullInfo = false;
         $reasons = [];
 
-        // ✅ Trường hợp 1: Tour custom → Được sửa tất cả
-        if ($isCustom) {
-            $canEditFullInfo = true;
-            $reasons[] = "Tour theo yêu cầu";
-        }
+        if ($editMode === 'FULL') {
+            // ✅ CHẾ ĐỘ ĐẦY ĐỦ - Cho phép sửa tất cả
+            $reasons[] = $isCustom ? "Tour theo yêu cầu" : "Chế độ sửa đầy đủ";
 
-        // ✅ Trường hợp 2: Booking đã HOÀN TẤT hoặc HỦY → Được sửa để điều chỉnh
-        if (in_array($old['status'], ['COMPLETED', 'CANCELED'])) {
-            $canEditFullInfo = true;
-            $reasons[] = "Booking đã kết thúc (điều chỉnh hậu kỳ)";
-        }
+        } elseif ($editMode === 'LIMITED') {
+            // ⚠️ CHẾ ĐỘ GIỚI HẠN - Kiểm tra thay đổi
 
-        // ✅ Trường hợp 3: Tour đã quá ngày khởi hành → Được sửa
-        if (!empty($old['depart_date']) && strtotime($old['depart_date']) < strtotime('today')) {
-            $canEditFullInfo = true;
-            $reasons[] = "Tour đã qua ngày khởi hành";
-        }
-
-        // =========================================================
-        // KIỂM TRA GIỚI HẠN CHO TOUR THƯỜNG (đang hoạt động)
-        // =========================================================
-
-        if (!$canEditFullInfo) {
-            // Tour thường ĐANG HOẠT ĐỘNG (chưa hoàn tất, chưa quá ngày)
-
-            // ❌ Không cho đổi số người
-            if ($adults != $old['adults'] || $children != $old['children']) {
-                return [
-                    'ok' => false,
-                    'errors' => [
-                        '❌ <strong>Không thể thay đổi số lượng người</strong> cho tour thường đang hoạt động.<br>' .
-                        '💡 <strong>Giải pháp:</strong><br>' .
-                        '&nbsp;&nbsp;&nbsp;• Hủy booking này và tạo booking mới<br>' .
-                        '&nbsp;&nbsp;&nbsp;• Hoặc đợi tour hoàn tất rồi điều chỉnh'
-                    ]
-                ];
-            }
-
-            // ❌ Không cho đổi lịch tour
+            // Check 1: Đổi tour
             if ($schedule_id != $old['tour_schedule_id']) {
-                return [
-                    'ok' => false,
-                    'errors' => [
-                        '❌ <strong>Không thể đổi lịch tour</strong> cho booking đang hoạt động.<br>' .
-                        '💡 <strong>Giải pháp:</strong> Hủy booking này và tạo booking mới với lịch mong muốn.'
-                    ]
-                ];
+                // Cho phép đổi tour, nhưng phải check capacity
+                $reasons[] = "Đổi sang tour mới (ID: {$schedule_id})";
+
+                // Validate tour mới có còn chỗ không
+                if (!$isCustom) {
+                    if (!$this->checkCapacity($schedule_id, $adults, $children)) {
+                        return [
+                            'ok' => false,
+                            'errors' => [
+                                '❌ <strong>Tour mới không đủ chỗ!</strong><br>' .
+                                'Vui lòng chọn tour khác hoặc giảm số lượng người.'
+                            ]
+                        ];
+                    }
+                }
             }
 
-            // ✅ Vẫn cho sửa: contact info, special_request, status
+            // Check 2: Đổi số người
+            if ($adults != $old['adults'] || $children != $old['children']) {
+                $reasons[] = "Thay đổi số người: {$old['adults']}NL+{$old['children']}TE → {$adults}NL+{$children}TE";
+
+                // Validate capacity
+                if (!$isCustom) {
+                    if (!$this->checkCapacity($schedule_id, $adults, $children, $id)) {
+                        return [
+                            'ok' => false,
+                            'errors' => [
+                                '❌ <strong>Không đủ chỗ trống!</strong><br>' .
+                                'Tour này chỉ còn <strong>' .
+                                $this->getAvailableSeats($schedule_id, $id) .
+                                '</strong> chỗ.<br>' .
+                                '💡 <strong>Giải pháp:</strong><br>' .
+                                '&nbsp;&nbsp;&nbsp;• Giảm số lượng người<br>' .
+                                '&nbsp;&nbsp;&nbsp;• Chọn tour khác<br>' .
+                                '&nbsp;&nbsp;&nbsp;• Hủy booking này và tạo booking mới'
+                            ]
+                        ];
+                    }
+                }
+            }
+
+            // Check 3: Đổi giá
+            $priceAdultOld = (float) $old['price_adult'];
+            $priceAdultNew = (float) ($data['price_adult'] ?? $priceAdultOld);
+            if (abs($priceAdultNew - $priceAdultOld) > 0.01) {
+                $reasons[] = "Điều chỉnh giá: " . number_format($priceAdultOld) . "đ → " . number_format($priceAdultNew) . "đ";
+            }
         }
 
         // =========================================================
-        // ✅ VALIDATE LOGIC NGHIỆP VỤ
+        // ✅ VALIDATE LOGIC NGHIỆP VỤ CHUNG
         // =========================================================
 
-        // Check 1: Nếu đổi sang COMPLETED → Phải thanh toán đủ
+        // Check 1: Chuyển sang COMPLETED → Phải thanh toán đủ
         if ($status === 'COMPLETED' && $old['status'] !== 'COMPLETED') {
             $paymentStatus = $this->getPaymentStatus($id);
-
             if ($paymentStatus !== 'FULL_PAID') {
                 return [
                     'ok' => false,
                     'errors' => [
                         '❌ <strong>Không thể chuyển sang HOÀN TẤT</strong><br>' .
-                        '💰 Trạng thái thanh toán hiện tại: <strong>' .
+                        '💰 Trạng thái thanh toán: <strong>' .
                         match ($paymentStatus) {
                             'DEPOSIT_PAID' => 'Đã cọc (chưa đủ)',
                             'PENDING' => 'Chưa thanh toán',
                             default => $paymentStatus
                         } . '</strong><br>' .
-                        '💡 <strong>Giải pháp:</strong> Vui lòng tạo payment để thanh toán đủ trước khi hoàn tất.'
+                        '💡 Vui lòng tạo payment để thanh toán đủ trước.'
                     ]
                 ];
             }
         }
 
-        // Check 2: Nếu đổi sang HỦY → Cảnh báo
+        // Check 2: Chuyển sang HỦY
         if ($status === 'CANCELED' && $old['status'] !== 'CANCELED') {
-            // Cho phép nhưng sẽ ghi log đặc biệt
             $reasons[] = "Admin chủ động HỦY booking";
-        }
-
-        // Check 3: Check capacity CHỈ cho tour thường
-        // Tour custom không cần check vì không giới hạn chỗ
-        if (!$isCustom && $canEditFullInfo) {
-            // Chỉ check khi thực sự thay đổi số người
-            if ($adults != $old['adults'] || $children != $old['children']) {
-                if (!$this->checkCapacity($schedule_id, $adults, $children, $id)) {
-                    return [
-                        'ok' => false,
-                        'errors' => [
-                            '❌ Không đủ chỗ trống!<br>' .
-                            '<small>Tour này đã kín. Vui lòng giảm số lượng người hoặc chọn lịch khác.</small>'
-                        ]
-                    ];
-                }
-            }
         }
 
         // =========================================================
         // TÍNH TOÁN GIÁ
         // =========================================================
 
-        // Ưu tiên giá từ form, nếu không có thì lấy từ schedule
-        $price_adult = null;
-        $price_children = null;
-
-        if ($canEditFullInfo) {
-            // Được sửa giá → Lấy từ form
-            $price_adult = (float) ($data['price_adult'] ?? $old['price_adult']);
-            $price_children = (float) ($data['price_children'] ?? $old['price_children']);
-        } else {
-            // Không được sửa giá → Lấy từ schedule
-            $scheduleInfo = $this->getSchedulePricing($schedule_id);
-            $price_adult = $scheduleInfo['price_adult'];
-            $price_children = $scheduleInfo['price_children'];
-        }
-
+        $price_adult = (float) ($data['price_adult'] ?? $old['price_adult']);
+        $price_children = (float) ($data['price_children'] ?? $old['price_children']);
         $total_amount = ($adults * $price_adult) + ($children * $price_children);
 
         // =========================================================
@@ -499,18 +483,18 @@ class BookingModel
 
             // Update booking
             $sql = "UPDATE bookings SET
-                tour_schedule_id = ?, 
-                contact_name = ?, 
-                contact_phone = ?, 
-                contact_email = ?,
-                adults = ?, 
-                children = ?, 
-                total_people = ?, 
-                total_amount = ?, 
-                status = ?, 
-                special_request = ?,
-                updated_at = NOW()
-            WHERE id = ?";
+            tour_schedule_id = ?, 
+            contact_name = ?, 
+            contact_phone = ?, 
+            contact_email = ?,
+            adults = ?, 
+            children = ?, 
+            total_people = ?, 
+            total_amount = ?, 
+            status = ?, 
+            special_request = ?,
+            updated_at = NOW()
+        WHERE id = ?";
 
             $this->pdo->prepare($sql)->execute([
                 $schedule_id,
@@ -529,8 +513,22 @@ class BookingModel
             // ✅ GHI LOG CHI TIẾT
             $changes = [];
 
+            // Log chế độ sửa
+            $modeLabel = match ($editMode) {
+                'FULL' => 'Sửa đầy đủ',
+                'LIMITED' => 'Sửa giới hạn',
+                'VIEW_ONLY' => 'Chỉ xem',
+                default => $editMode
+            };
+            $changes[] = "Chế độ: {$modeLabel}";
+
             if (!empty($reasons)) {
-                $changes[] = "Lý do được sửa: " . implode(", ", $reasons);
+                $changes[] = "Lý do: " . implode(", ", $reasons);
+            }
+
+            // Log các thay đổi cụ thể
+            if ($old['tour_schedule_id'] !== $schedule_id) {
+                $changes[] = "Đổi lịch tour: {$old['tour_schedule_id']} → {$schedule_id}";
             }
 
             if ($old['status'] !== $status) {
@@ -543,7 +541,7 @@ class BookingModel
                 $changes[] = "Số người: {$old['adults']}NL+{$old['children']}TE → {$adults}NL+{$children}TE";
             }
 
-            if ($old['total_amount'] != $total_amount) {
+            if (abs($old['total_amount'] - $total_amount) > 0.01) {
                 $oldAmount = number_format($old['total_amount']);
                 $newAmount = number_format($total_amount);
                 $changes[] = "Tổng tiền: {$oldAmount}đ → {$newAmount}đ";
@@ -573,14 +571,16 @@ class BookingModel
             // ✅ CẬP NHẬT SEATS (chỉ với tour thường)
             if (!$isCustom) {
                 if ($old['tour_schedule_id'] !== $schedule_id) {
+                    // Đổi tour → Update cả 2 tours
                     $this->updateSeats($old['tour_schedule_id']);
                     $this->updateSeats($schedule_id);
                 } else {
+                    // Chỉ đổi số người → Update tour hiện tại
                     $this->updateSeats($schedule_id);
                 }
             }
 
-            return ['ok' => true, 'message' => 'Cập nhật thành công!'];
+            return ['ok' => true, 'message' => '✅ Cập nhật thành công!'];
 
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
@@ -588,6 +588,113 @@ class BookingModel
             }
             return ['ok' => false, 'errors' => [$e->getMessage()]];
         }
+    }
+
+    /** ========================
+     *  🔒 UPDATE CHỈ CONTACT INFO (VIEW_ONLY MODE)
+     *  ======================== */
+    private function updateContactInfoOnly($id, $data, $old, $author_id = null)
+    {
+        try {
+            $this->pdo->beginTransaction();
+
+            // Chỉ update contact info và special_request
+            $sql = "UPDATE bookings SET
+            contact_name = ?, 
+            contact_phone = ?, 
+            contact_email = ?,
+            special_request = ?,
+            updated_at = NOW()
+        WHERE id = ?";
+
+            $this->pdo->prepare($sql)->execute([
+                $data['contact_name'] ?? $old['contact_name'],
+                $data['contact_phone'] ?? $old['contact_phone'],
+                $data['contact_email'] ?? $old['contact_email'],
+                $data['special_request'] ?? $old['special_request'],
+                $id
+            ]);
+
+            // Ghi log
+            $changes = [];
+            $changes[] = "Chế độ: Chỉ xem (VIEW_ONLY)";
+
+            if ($old['contact_name'] !== ($data['contact_name'] ?? $old['contact_name'])) {
+                $changes[] = "Tên khách: {$old['contact_name']} → " . ($data['contact_name'] ?? '');
+            }
+
+            if ($old['contact_phone'] !== ($data['contact_phone'] ?? $old['contact_phone'])) {
+                $changes[] = "SĐT: {$old['contact_phone']} → " . ($data['contact_phone'] ?? '');
+            }
+
+            if ($old['contact_email'] !== ($data['contact_email'] ?? $old['contact_email'])) {
+                $changes[] = "Email: {$old['contact_email']} → " . ($data['contact_email'] ?? '');
+            }
+
+            if ($old['special_request'] !== ($data['special_request'] ?? $old['special_request'])) {
+                $changes[] = "Cập nhật yêu cầu đặc biệt";
+            }
+
+            if (count($changes) > 1) { // Có thay đổi ngoài mode
+                $this->pdo->prepare("
+                INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
+                VALUES (?, ?, 'NOTE', ?)
+            ")->execute([
+                            $id,
+                            $author_id,
+                            "Admin cập nhật (chế độ hạn chế):\n• " . implode("\n• ", $changes)
+                        ]);
+            }
+
+            $this->pdo->commit();
+
+            return ['ok' => true, 'message' => '✅ Cập nhật thông tin liên hệ thành công!'];
+
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            return ['ok' => false, 'errors' => [$e->getMessage()]];
+        }
+    }
+
+    /** ========================
+     *  🔍 HELPER: Lấy số chỗ còn trống
+     *  ======================== */
+    private function getAvailableSeats($schedule_id, $exclude_booking_id = null): int
+    {
+        $stmt = $this->pdo->prepare("SELECT seats_total FROM tour_schedule WHERE id = ?");
+        $stmt->execute([$schedule_id]);
+        $sc = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$sc) {
+            return 0;
+        }
+
+        $seats_total = (int) $sc['seats_total'];
+
+        if ($seats_total <= 0) {
+            return PHP_INT_MAX; // Không giới hạn
+        }
+
+        // Tính số chỗ đã book
+        $sql = "SELECT SUM(adults + children) AS booked
+        FROM bookings
+        WHERE tour_schedule_id = ? 
+        AND status IN ('PENDING','CONFIRMED','READY','IN_PROGRESS','COMPLETED')";
+
+        $params = [$schedule_id];
+
+        if ($exclude_booking_id) {
+            $sql .= " AND id != ?";
+            $params[] = $exclude_booking_id;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $booked = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['booked'] ?? 0);
+
+        return max(0, $seats_total - $booked);
     }
 
     /** ========================
@@ -1174,9 +1281,9 @@ class BookingModel
 
     // models/admin/BookingModel.php
 
-public function getOpenSchedules(): array
-{
-    $sql = "SELECT 
+    public function getOpenSchedules(): array
+    {
+        $sql = "SELECT 
                ts.id, 
                ts.depart_date, 
                ts.return_date,
@@ -1203,11 +1310,11 @@ public function getOpenSchedules(): array
             ORDER BY 
               is_past_date ASC,           
               ts.is_custom_request ASC, 
-              ts.depart_date ASC";        
+              ts.depart_date ASC";
 
-    $stmt = $this->pdo->prepare($sql);
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
 }
