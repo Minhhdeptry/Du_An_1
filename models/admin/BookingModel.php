@@ -1172,26 +1172,42 @@ class BookingModel
         return $errors;
     }
 
-    public function getOpenSchedules(): array
-    {
-        $sql = "SELECT ts.id, 
-                   ts.depart_date, 
-                   ts.seats_available, 
-                   ts.price_adult, 
-                   ts.price_children,
-                   ts.is_custom_request,  -- ✅ THÊM DÒNG NÀY
-                   t.title AS tour_title, 
-                   t.duration_days, 
-                   c.name AS category_name
+    // models/admin/BookingModel.php
+
+public function getOpenSchedules(): array
+{
+    $sql = "SELECT 
+               ts.id, 
+               ts.depart_date, 
+               ts.return_date,
+               ts.seats_available, 
+               ts.seats_total,
+               ts.price_adult, 
+               ts.price_children,
+               ts.is_custom_request,
+               ts.status,
+               t.title AS tour_title, 
+               t.duration_days, 
+               c.name AS category_name,
+               -- ✅ THÊM: Check xem đã quá ngày chưa
+               CASE 
+                   WHEN ts.depart_date < CURDATE() THEN 1
+                   ELSE 0
+               END AS is_past_date
             FROM tour_schedule ts
             JOIN tours t ON t.id = ts.tour_id
             LEFT JOIN tour_category c ON c.id = t.category_id
             WHERE ts.status = 'OPEN'
-            ORDER BY ts.depart_date ASC";
+              -- ❌ BỎ ĐIỀU KIỆN NÀY để hiện tất cả tour OPEN
+              -- AND ts.depart_date >= CURDATE()  
+            ORDER BY 
+              is_past_date ASC,           
+              ts.is_custom_request ASC, 
+              ts.depart_date ASC";        
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+    $stmt = $this->pdo->prepare($sql);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 }

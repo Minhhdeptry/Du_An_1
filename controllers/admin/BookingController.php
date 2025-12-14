@@ -61,18 +61,46 @@ class BookingController
             exit;
         }
 
-        // ✅ FIX: Thêm thông tin is_custom_request vào mỗi schedule
+        // ✅ FIX: Kiểm tra và set lại is_custom_request ĐÚNG
         foreach ($schedules as &$schedule) {
-            // Kiểm tra xem tour này có phải là custom request không
+            $schedule_id = $schedule['id'];
+
+            // ✅ Lấy từ DB để đảm bảo chính xác
             $stmt = $this->bookingModel->getConnection()->prepare("
-            SELECT is_custom_request 
-            FROM tour_schedule 
-            WHERE id = ?
+            SELECT 
+                ts.is_custom_request,
+                ts.seats_total,
+                t.is_custom
+            FROM tour_schedule ts
+            LEFT JOIN tours t ON t.id = ts.tour_id
+            WHERE ts.id = ?
         ");
-            $stmt->execute([$schedule['id']]);
+            $stmt->execute([$schedule_id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            $schedule['is_custom_request'] = (int) ($result['is_custom_request'] ?? 0);
+            if ($result) {
+                // ✅ LOGIC ĐÚNG: Tour custom = is_custom_request = 1 HOẶC tour.is_custom = 1
+                $isScheduleCustom = (int) ($result['is_custom_request'] ?? 0) === 1;
+                $isTourCustom = (int) ($result['is_custom'] ?? 0) === 1;
+                $seatsTotal = (int) ($result['seats_total'] ?? 0);
+
+                // ✅ CHUẨN HÓA: Nếu seats_total = 0 → CHẮC CHẮN là custom
+                if ($seatsTotal === 0) {
+                    $schedule['is_custom_request'] = 1;
+                } else {
+                    $schedule['is_custom_request'] = ($isScheduleCustom || $isTourCustom) ? 1 : 0;
+                }
+
+                // Debug
+                error_log(sprintf(
+                    "Schedule #%d: %s | Original is_custom_request=%d | Seats=%d | Final is_custom_request=%d",
+                    $schedule_id,
+                    $schedule['tour_title'],
+                    (int) $result['is_custom_request'],
+                    $seatsTotal,
+                    $schedule['is_custom_request']
+                ));
+            }
         }
 
         $pageTitle = "Tạo Booking theo lịch khởi hành";
