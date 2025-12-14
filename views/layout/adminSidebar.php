@@ -18,7 +18,7 @@ $currentAct = $currentAct ?? '';
     <a href="?act=admin-category"
         class="menu-item <?= (in_array($currentAct, ['admin-category', 'admin-category-create', 'admin-category-edit']) ? 'active' : '') ?>">
         <i class="fas fa-list menu-icon"></i>
-        <span>Quản lý Danh mục Tour</span>
+        <span>Quản lý Tour</span>
     </a>
 
     <a href="?act=admin-booking"
@@ -47,7 +47,7 @@ $currentAct = $currentAct ?? '';
 
     <a href="?act=admin-schedule" class="menu-item <?= ($currentAct == 'admin-schedule' ? 'active' : '') ?>">
         <i class="fas fa-calendar-alt menu-icon"></i>
-        <span>Lịch điều hành</span>
+        <span>Lịch khởi hành</span>
     </a>
 
     <a href="?act=admin-payment"

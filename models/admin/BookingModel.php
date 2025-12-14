@@ -20,7 +20,7 @@ class BookingModel
     {
         require_once "./commons/function.php";
         $this->pdo = connectDB();
-        $this->paymentModel = new PaymentModel();
+        $this->paymentModel = new PaymentModel($this->pdo);
     }
 
     public function getConnection(): PDO
@@ -150,11 +150,16 @@ class BookingModel
             $booking_id = $this->pdo->lastInsertId();
 
             // 🔥 TỰ ĐỘNG TẠO PAYMENT PENDING
-            $payment_id = $this->paymentModel->createInitialPayment($booking_id, $total_amount);
+            $payment_id = null;
 
-            if (!$payment_id) {
-                throw new \Exception("Không thể tạo payment tự động");
-            }
+if ($total_amount > 0) {
+    $payment_id = $this->paymentModel->createInitialPayment($booking_id, $total_amount);
+
+    if (!$payment_id) {
+        throw new \Exception("Không thể tạo payment tự động");
+    }
+}
+
 
             // Ghi log
             $this->pdo->prepare("
@@ -169,7 +174,6 @@ class BookingModel
             $this->pdo->commit();
 
             return ['ok' => true, 'booking_id' => $booking_id, 'payment_id' => $payment_id];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -238,7 +242,7 @@ class BookingModel
                     $id,
                     $author_id,
                     "Trạng thái chuyển từ " . (self::$statusLabels[$old['status']] ?? $old['status']) .
-                    " sang " . (self::$statusLabels[$status] ?? $status)
+                        " sang " . (self::$statusLabels[$status] ?? $status)
                 ]);
             }
 
@@ -250,7 +254,6 @@ class BookingModel
             }
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -291,7 +294,6 @@ class BookingModel
             $this->updateSeats($b['tour_schedule_id']);
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -317,7 +319,7 @@ class BookingModel
         try {
             // ✅ Chỉ ghi log, KHÔNG thay đổi status
             // Status sẽ tự động chuyển khi có payment
-            
+
             $this->pdo->prepare("
                 INSERT INTO tour_logs (booking_id, author_id, entry_type, content)
                 VALUES (?, ?, 'NOTE', ?)
@@ -330,7 +332,6 @@ class BookingModel
             $_SESSION['success'] = "✅ Đã xác nhận booking! Booking sẽ tự động chuyển trạng thái khi khách thanh toán.";
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             return ['ok' => false, 'errors' => [$e->getMessage()]];
         }
@@ -360,7 +361,6 @@ class BookingModel
             ]);
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             return ['ok' => false, 'errors' => [$e->getMessage()]];
         }
@@ -565,7 +565,6 @@ class BookingModel
             ]);
 
             return (int) $this->pdo->lastInsertId();
-
         } catch (\Throwable $e) {
             error_log("CreateCustomSchedule Error: " . $e->getMessage());
             return null;

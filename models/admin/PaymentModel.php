@@ -5,6 +5,11 @@ class PaymentModel
 {
     private $pdo;
 
+    public function __construct(PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
+
     public static $statusLabels = [
         'PENDING' => 'Chờ thanh toán',
         'SUCCESS' => 'Thành công',
@@ -27,11 +32,12 @@ class PaymentModel
         'ZALOPAY' => 'ZaloPay',
     ];
 
-    public function __construct()
-    {
-        require_once "./commons/function.php";
-        $this->pdo = connectDB();
-    }
+    // public function __construct()
+    // {
+    //     require_once "./commons/function.php";
+    //     $this->pdo = $pdo;
+    //     // $this->pdo = connectDB();
+    // }
 
     /** ========================
      *  📋 LẤY TẤT CẢ PAYMENTS
@@ -55,28 +61,24 @@ class PaymentModel
             return [];
         }
     }
-
-    /** ========================
-     *  🔥 TỰ ĐỘNG TẠO PAYMENT KHI TẠO BOOKING
-     *  ======================== */
+    
     public function createInitialPayment($booking_id, $total_amount)
     {
-        try {
-            $payment_code = $this->generatePaymentCode();
-
-            $stmt = $this->pdo->prepare("
-                INSERT INTO payments 
-                (payment_code, booking_id, amount, type, method, status, created_at)
-                VALUES (?, ?, ?, 'FULL', 'BANK_TRANSFER', 'PENDING', NOW())
-            ");
-
-            $stmt->execute([$payment_code, $booking_id, $total_amount]);
-            return $this->pdo->lastInsertId();
-
-        } catch (\Throwable $e) {
-            error_log("CreateInitialPayment Error: " . $e->getMessage());
-            return null;
+        if (!$this->pdo) {
+            throw new Exception("PDO not injected into PaymentModel");
         }
+
+        $sql = "INSERT INTO payments 
+            (booking_id, amount, type, method, status)
+            VALUES (:booking_id, :amount, 'FULL', 'TRANSFER', 'PENDING')";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':booking_id' => $booking_id,
+            ':amount' => $total_amount,
+        ]);
+
+        return $this->pdo->lastInsertId();
     }
 
     /** ========================
@@ -128,7 +130,6 @@ class PaymentModel
             $this->pdo->commit();
 
             return ['ok' => true, 'payment_id' => $payment_id];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -207,7 +208,6 @@ class PaymentModel
             } else {
                 return 'DEPOSIT_PAID';
             }
-
         } catch (\Throwable $e) {
             error_log("GetPaymentStatus Error: " . $e->getMessage());
             return 'PENDING';
@@ -222,23 +222,23 @@ class PaymentModel
     {
         try {
             $paymentStatus = $this->getPaymentStatus($booking_id);
-            
+
             // Lấy booking hiện tại
             $stmt = $this->pdo->prepare("SELECT status, total_amount FROM bookings WHERE id = ?");
             $stmt->execute([$booking_id]);
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$booking) return;
-            
+
             // Không update nếu đã COMPLETED hoặc CANCELED
             if (in_array($booking['status'], ['COMPLETED', 'CANCELED'])) {
                 return;
             }
-            
+
             // ✅ Logic chuyển trạng thái theo 4 trạng thái mới
             $newStatus = null;
             $logMessage = null;
-            
+
             if ($paymentStatus === 'FULL_PAID') {
                 // Đã thanh toán đủ → Hoàn tất
                 $newStatus = 'COMPLETED';
@@ -248,12 +248,12 @@ class PaymentModel
                 $newStatus = 'DEPOSIT_PAID';
                 $logMessage = "Booking chuyển sang ĐÃ CỌC (đã thanh toán một phần)";
             }
-            
+
             // Chỉ update nếu có thay đổi status
             if ($newStatus && $newStatus !== $booking['status']) {
                 $stmt = $this->pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?");
                 $stmt->execute([$newStatus, $booking_id]);
-                
+
                 // Ghi log
                 $stmt = $this->pdo->prepare("
                     INSERT INTO tour_logs (booking_id, entry_type, content, created_at)
@@ -261,7 +261,6 @@ class PaymentModel
                 ");
                 $stmt->execute([$booking_id, $logMessage]);
             }
-            
         } catch (\Throwable $e) {
             error_log("UpdateBookingStatusAuto Error: " . $e->getMessage());
         }
@@ -295,7 +294,6 @@ class PaymentModel
             $this->pdo->commit();
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -351,7 +349,6 @@ class PaymentModel
             $this->pdo->commit();
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
