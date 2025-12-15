@@ -22,8 +22,9 @@ require_once './controllers/admin/ScheduleController.php';
 require_once './controllers/admin/StaffController.php';
 require_once './controllers/admin/UserController.php';
 require_once './controllers/admin/PaymentController.php';
-require_once './controllers/admin/ReportController.php';
+require_once './controllers/admin/TourReportController.php';
 require_once './controllers/admin/ItineraryController.php';
+require_once './controllers/admin/BookingCustomerController.php';
 
 require_once './controllers/admin/StaffScheduleController.php';
 require_once './controllers/admin/StaffCertificateController.php';
@@ -39,19 +40,30 @@ $currentAct = $act;
 
 // ✅ Bước 5: Middleware - Kiểm tra đăng nhập
 $publicRoutes = ['sign-in', 'sign-up', 'logout'];
+$guideRoutes = [
+    'assigned-tours',
+    'tour-detail',
+    'booking-checkin',
+    'guide-dashboard',   
+];
 
 if (!in_array($act, $publicRoutes)) {
-    // Kiểm tra đã đăng nhập chưa
     if (!isset($_SESSION['user'])) {
-        $_SESSION['error'] = "Vui lòng đăng nhập để tiếp tục!";
+        $_SESSION['error'] = "Vui lòng đăng nhập!";
         header("Location: index.php?act=sign-in");
         exit();
     }
+    $role = $_SESSION['user']['role'];
 
-    // ✅ FIX: Chỉ kiểm tra role ADMIN, HDV cho các route có prefix "admin-Hdv"
-    if (strpos($act, 'admin-Hdv') === 0 && $_SESSION['user']['role'] !== 'ADMIN' && $_SESSION['user']['role'] !== 'HDV' ) {
+    if ($role === 'HDV' && !in_array($act, $guideRoutes)) {
         $_SESSION['error'] = "Bạn không có quyền truy cập!";
-        header("Location: index.php?act=sign-in");
+        header("Location: index.php?act=assigned-tours");
+        exit();
+    }
+
+    if ($role !== 'ADMIN' && $role !== 'HDV') {
+        $_SESSION['error'] = "Bạn không có quyền truy cập!";
+        header("Location: index.php");
         exit();
     }
 }
@@ -63,6 +75,15 @@ match ($act) {
   'sign-up' => (new AuthController())->SignUp(),
   'logout' => (new AuthController())->logout(),
 
+  // ================= GUIDE ===================
+    'assigned-tours' => (new StaffScheduleController())->assignedTours($currentAct),
+    'tour-detail' => (new StaffScheduleController())->tourDetail($_GET['tour_schedule_id'], $currentAct),
+    'booking-checkin' => (new BookingCustomerController())->checkIn(),
+    'guide-dashboard' => (function() use ($currentAct) {
+        $pageTitle = "Thống kê cá nhân";
+        $view = "./views/admin/Staff/guideDashboard.php";
+        include "./views/layout/adminLayout.php";
+    })(),
 
   // ================= TOUR ADMIN ===================
   'admin-tour' => (new TourController())->index($currentAct),
@@ -82,10 +103,22 @@ match ($act) {
   'admin-booking-create' => (new BookingController())->createForm($currentAct),
   'admin-booking-store' => (new BookingController())->store(),
   'admin-booking-confirm' => (new BookingController())->confirm(),
+  'admin-booking-refund' => (new BookingController())->refund(),
+  'admin-booking-complete' => (new BookingController())->complete(),
+  'admin-booking-mark-ready' => (new BookingController())->markReady(),
+  'admin-booking-start-tour' => (new BookingController())->startTour(),
   'admin-booking-detail' => (new BookingController())->detail($currentAct),
-  // Xóa item dùng deleteItem()
-  'admin-booking-item-delete' => (new BookingController())->deleteItem(),
-
+  'admin-booking-delete-item' => (new BookingController())->deleteItem(),
+  
+  // ================= BOOKING-CUSTOMER ADMIN ===================
+  'admin-booking-customer' => (new BookingCustomerController())->index($currentAct),
+  'admin-booking-customer-create' => (new BookingCustomerController())->create($currentAct),
+  'admin-booking-customer-edit' => (new BookingCustomerController())->edit($currentAct),
+  'admin-booking-customer-store' => (new BookingCustomerController())->store(),
+  'admin-booking-customer-update' => (new BookingCustomerController())->update(),
+  'admin-booking-customer-delete' => (new BookingCustomerController())->delete(),
+  'admin-booking-customer-checkin' => (new BookingCustomerController())->checkin(),
+  'admin-booking-customer-undo-checkin' => (new BookingCustomerController())->undoCheckIn(),
 
   // ================= CATEGORY ADMIN ===================
   'admin-category' => (new CategoryController())->index($currentAct),
@@ -115,12 +148,6 @@ match ($act) {
     
   // Hiệu suất HDV
     'admin-staff-performance' => (new StaffScheduleController())->performance($currentAct),
-  
-  // các tour được phân công cho HDV
-    'admin-staff-assigned-tours' => (new StaffScheduleController())->assignedTours($currentAct),  
-  
-  // thông tin cá nhân HDV
-    'admin-staff-infomation' => (new StaffScheduleController())->staffInformation($currentAct), 
   // API check availability
     'admin-staff-check-availability' => (new StaffScheduleController())->checkAvailability(),
     
@@ -171,7 +198,8 @@ match ($act) {
 
 
   // ================= REPORT ===================
-  'admin-report' => (new ReportController())->index($currentAct),
+
+  'admin-report' => (new TourReportController())->index($currentAct),
 
   // ================= ITINERARY (Lịch trình Tour) ===================
   'admin-itinerary-list' => (new ItineraryController())->selectTour($currentAct), 

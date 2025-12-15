@@ -6,18 +6,32 @@
 require_once "./models/admin/StaffModel.php";
 require_once "./models/admin/StaffTourHistoryModel.php";
 require_once "./models/admin/TourScheduleModel.php";
+require_once "./models/admin/BookingCustomerModel.php";
+require_once "./models/admin/BookingModel.php";
+
 
 class StaffScheduleController
 {
     private $staffModel;
     private $historyModel;
     private $scheduleModel;
+    private $bookingCustomerModel;
+    private $bookingModel;
 
     public function __construct()
     {
-        $this->staffModel = new StaffModel();
-        $this->historyModel = new StaffTourHistoryModel();
-        $this->scheduleModel = new TourScheduleModel();
+        // $this->staffModel = new StaffModel();
+        // $this->historyModel = new StaffTourHistoryModel();
+        // $this->scheduleModel = new TourScheduleModel();
+        // $this->bookingCustomerModel = new BookingCustomerModel();
+        // $this->bookingModel = new BookingModel();
+        $pdo = connectDB();
+
+        $this->staffModel = new StaffModel($pdo);
+        $this->historyModel = new StaffTourHistoryModel($pdo);
+        $this->scheduleModel = new TourScheduleModel($pdo);
+        $this->bookingCustomerModel = new BookingCustomerModel($pdo);
+        $this->bookingModel = new BookingModel($pdo);
     }
 
     /**
@@ -520,94 +534,58 @@ class StaffScheduleController
         exit;
     }
 
-    public function assignedTours($currentAct)
+    public function assignedTours($currentAct = null)
     {
-        // Ưu tiên lấy staff_id từ GET, sau đó session, cuối cùng tra DB theo user nếu là HDV
-        $staff_id = $_GET['staff_id'] ?? ($_SESSION['staff_id'] ?? null);
-
-        // Nếu chưa có staff_id mà là HDV đã đăng nhập, tra cứu staff_id từ DB
-        if (!$staff_id && !empty($_SESSION['user']) && (($_SESSION['role'] ?? '') === 'HDV')) {
-            $user_id = $_SESSION['user']['id'] ?? null;
-            if ($user_id) {
-                $pdo = $this->staffModel->getConnection();
-                $stmt = $pdo->prepare("SELECT s.id AS id, u.full_name AS full_name FROM staffs s JOIN users u ON u.id = s.user_id WHERE s.user_id = ? LIMIT 1");
-                $stmt->execute([$user_id]);
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($row) {
-                    $staff_id = $row['id'];
-                    $_SESSION['staff_id'] = $staff_id;
-                    $_SESSION['full_name'] = $row['full_name'];
-                }
-            }
-        }
-
-        // Nếu vẫn chưa có staff_id, xử lý cho HDV hoặc báo lỗi cho admin
-        if (!$staff_id) {
-            if (!empty($_SESSION['user']) && (($_SESSION['role'] ?? '') === 'HDV')) {
-                $staff = ['full_name' => $_SESSION['full_name'] ?? 'Hướng dẫn viên'];
-                $tours = [];
-                $pageTitle = "Tour được phân công - " . $staff['full_name'];
-                $currentAct = 'admin-staff-tours';
-                $view = "./views/Staff/assignedTours.php";
-                include "./views/layout/adminLayout.php";
-                return;
-            }
-            $_SESSION['error'] = "❌ Không tìm thấy HDV!";
-            header("Location: index.php?act=admin-staff");
+        // Kiểm tra đăng nhập
+        if (!isset($_SESSION['user'])) {
+            header("Location: index.php?act=sign-in");
             exit;
         }
 
-        // Lấy thông tin staff và các tour đã phân công
-        $staff = $this->staffModel->find($staff_id);
-        if (!$staff) {
-            $_SESSION['error'] = "❌ HDV không tồn tại!";
-            header("Location: index.php?act=admin-staff");
-            exit;
-        }
-
-        // Lấy danh sách tour được phân công từ tour_schedule
-        $assignedTours = $this->scheduleModel->getToursByStaff($staff_id);
-
-        $pageTitle = "Tour được phân công - " . ($staff['full_name'] ?? '');
-        $currentAct = 'admin-staff-tours';
-        // Nếu là HDV thì dùng view riêng, còn lại dùng view admin
-        if (($_SESSION['role'] ?? '') === 'HDV') {
-            $view = "./views/Staff/assignedTours.php";
-        } else {
-            $view = "./views/admin/Staff/claimTours.php";
-        }
-        include "./views/layout/adminLayout.php";
-    }
-
-    public function staffInformation($currentAct)
-    {
-
-        // HDV chỉ được xem/sửa thông tin của chính mình, bỏ qua mọi tham số GET
-        if (!empty($_SESSION['role']) && $_SESSION['role'] === 'HDV') {
-            $staff_id = $_SESSION['staff_id'] ?? null;
-        } else {
-            // Admin có thể xem/sửa thông tin của bất kỳ staff nào qua GET id
-            $staff_id = isset($_GET['id']) ? $_GET['id'] : ($_SESSION['staff_id'] ?? null);
-        }
-
-        // Nếu không xác định được staff_id, báo lỗi
-        if (!$staff_id) {
-            $_SESSION['error'] = "❌ Không tìm thấy HDV!";
-            header("Location: index.php?act=admin-staff");
-            exit;
-        }
+        $userId = $_SESSION['user']['id'];
 
         // Lấy thông tin staff
-        $staff = $this->staffModel->find($staff_id);
+        $staff = $this->staffModel->getStaffByUserId($userId);
+
         if (!$staff) {
-            $_SESSION['error'] = "❌ HDV không tồn tại!";
-            header("Location: index.php?act=admin-staff");
+            $_SESSION['error'] = "Không tìm thấy thông tin hướng dẫn viên!";
+            header("Location: index.php?act=sign-in");
             exit;
         }
 
-        $pageTitle = "Thông tin cá nhân - " . ($staff['full_name'] ?? '');
-        $currentAct = (!empty($_SESSION['role']) && $_SESSION['role'] === 'HDV') ? 'staff-information' : 'admin-staff-infomation';
-        $view = "./views/Staff/staffInformation.php";
+        $staff_id = $staff['id'];
+
+        // Query danh sách tour
+        $pdo = $this->staffModel->getConnection();
+        $sql = "SELECT 
+                ts.id,
+                ts.depart_date,
+                ts.return_date,
+                ts.status,
+                t.title AS tour_name,
+                t.code AS tour_code
+            FROM tour_schedule ts
+            JOIN tours t ON ts.tour_id = t.id
+            JOIN staff_tour_history sth ON ts.id = sth.tour_schedule_id
+            WHERE sth.staff_id = ?
+            ORDER BY ts.depart_date DESC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$staff_id]);
+        $assignedTours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $pageTitle = "Tours Được Phân Công";
+        $currentAct = $currentAct ?? 'assigned-tours';
+        $view = "./views/admin/Staff/assignedTours.php";
         include "./views/layout/adminLayout.php";
     }
+
+    public function tourDetail($tour_schedule_id, $currentAct = null) 
+    {
+        $pageTitle = "Chi tiết tour - Check-in khách";
+        $view = "./views/admin/Staff/tourDetail.php";
+        include "./views/layout/adminLayout.php";
+    }
+
 }
+?>

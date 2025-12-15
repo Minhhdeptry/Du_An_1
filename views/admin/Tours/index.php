@@ -62,17 +62,26 @@
             </a>
         </div>
 
-        <!-- Form tìm kiếm -->
-        <form class="row g-2 mb-4 search-form" method="get" action="index.php">
+        <form method="get" action="index.php" class="row g-2 mb-4">
             <input type="hidden" name="act" value="admin-tour">
             <div class="col-auto">
-                <input type="text" name="keyword" class="form-control" placeholder="Tìm theo tên, mã tour..."
-                    value="<?= isset($_GET['keyword']) ? htmlspecialchars($_GET['keyword']) : '' ?>">
+                <input type="text" name="keyword" value="<?= htmlspecialchars($_GET['keyword'] ?? '') ?>"
+                    placeholder="Tìm theo tên, mã tour..." class="form-control">
             </div>
             <div class="col-auto">
-                <button class="btn btn-primary">Tìm kiếm</button>
+                <select name="category_id" class="form-select">
+                    <option value="">-- Tất cả danh mục --</option>
+                    <?php foreach ($categories as $c): ?>
+                        <option value="<?= $c['id'] ?>" <?= (isset($_GET['category_id']) && $_GET['category_id'] == $c['id']) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($c['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <?php if (!empty($_GET['keyword'])): ?>
+            <div class="col-auto">
+                <button class="btn btn-primary">Tìm & Lọc</button>
+            </div>
+            <?php if (!empty($_GET['keyword']) || !empty($_GET['category_id'])): ?>
                 <div class="col-auto">
                     <a href="index.php?act=admin-tour" class="btn btn-secondary">Xóa</a>
                 </div>

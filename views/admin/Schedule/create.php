@@ -5,9 +5,8 @@
             <i class="bi bi-arrow-left"></i> Quay lại
         </a>
     </div>
-    
+
     <form method="POST" action="index.php?act=admin-schedule-store" class="card p-4 shadow-sm">
-        
         <!-- Chọn Tour -->
         <div class="form-group mb-3">
             <label class="fw-bold">Tour <span class="text-danger">*</span></label>
@@ -56,11 +55,11 @@
         <!-- Giá -->
         <div class="form-row mb-3">
             <div class="col-md-6">
-                <label class="fw-bold">Giá người lớn (VNĐ) <span class="text-danger">*</span></label>
+                <label class="fw-bold">Giá người lớn (từ 12 tuổi trở lên) <span class="text-danger">*</span></label>
                 <input type="number" name="price_adult" class="form-control" min="0" required>
             </div>
             <div class="col-md-6">
-                <label class="fw-bold">Giá trẻ em (dưới 10 tuổi) (VNĐ)</label>
+                <label class="fw-bold">Giá trẻ em (từ 12 tuổi trở xuống) (VNĐ)</label>
                 <input type="number" name="price_children" class="form-control" min="0" value="0">
             </div>
         </div>
@@ -79,7 +78,8 @@
         <!-- Ghi chú -->
         <div class="form-group mb-3">
             <label class="fw-bold">Ghi chú</label>
-            <textarea name="note" class="form-control" rows="3" placeholder="Ghi chú thêm về lịch tour này..."></textarea>
+            <textarea name="note" class="form-control" rows="3"
+                placeholder="Ghi chú thêm về lịch tour này..."></textarea>
         </div>
 
         <!-- Buttons -->
@@ -95,26 +95,35 @@
 </div>
 
 <script>
-// Ẩn/hiện phần số ghế dựa vào loại tour
-document.getElementById('tourType').addEventListener('change', function() {
-    const seatsSection = document.getElementById('seatsSection');
-    const seatsInput = document.getElementById('seatsTotal');
-    
-    if (this.value === 'ON_DEMAND') {
-        seatsSection.style.display = 'none';
-        seatsInput.removeAttribute('required');
-        seatsInput.value = '0';
-    } else {
-        seatsSection.style.display = 'block';
-        seatsInput.setAttribute('required', 'required');
-        seatsInput.value = '30';
-    }
-});
+    // Ẩn/hiện phần số ghế dựa vào loại tour
+    document.getElementById('tourType').addEventListener('change', function () {
+        const seatsSection = document.getElementById('seatsSection');
+        const seatsInput = document.getElementById('seatsTotal');
 
-// Trigger khi load trang
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('tourType').dispatchEvent(new Event('change'));
-});
+        if (this.value === 'ON_DEMAND') {
+            seatsSection.style.display = 'none';
+            seatsInput.removeAttribute('required');
+            seatsInput.removeAttribute('min'); // ✅ THÊM: Xóa min validation
+            seatsInput.value = '0';
+        } else {
+            seatsSection.style.display = 'block';
+            seatsInput.setAttribute('required', 'required');
+            seatsInput.setAttribute('min', '1'); // ✅ THÊM: Set lại min
+            seatsInput.value = '30';
+        }
+    });
+
+    // Trigger khi load trang
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('tourType').dispatchEvent(new Event('change'));
+    });
+
+    // ✅ THÊM: Debug form submit
+    document.querySelector('form').addEventListener('submit', function (e) {
+        console.log('Form đang submit...');
+        console.log('Tour type:', document.getElementById('tourType').value);
+        console.log('Seats total:', document.getElementById('seatsTotal').value);
+    });
 </script>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">

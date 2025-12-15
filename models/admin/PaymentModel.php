@@ -20,7 +20,7 @@ class PaymentModel
 
     public static $methodLabels = [
         'CASH' => 'Tiền mặt',
-        'BANK_TRANSFER' => 'Chuyển khoản',
+        'TRANSFER' => 'Chuyển khoản',
         'CREDIT_CARD' => 'Thẻ tín dụng',
         'MOMO' => 'MoMo',
         'VNPAY' => 'VNPay',
@@ -36,7 +36,6 @@ class PaymentModel
             $this->pdo = connectDB();
         }
     }
-
 
     /** ========================
      *  📋 LẤY TẤT CẢ PAYMENTS
@@ -60,37 +59,37 @@ class PaymentModel
             return [];
         }
     }
-
-    /** ========================
-     *  🔥 TỰ ĐỘNG TẠO PAYMENT KHI TẠO BOOKING
-     *  ======================== */
+    
     public function createInitialPayment($booking_id, $total_amount)
     {
-        if (!$booking_id || !$total_amount) {
-            error_log("Invalid data for payment");
-            return null;
-        }
-
         try {
             $payment_code = $this->generatePaymentCode();
+        if (!$this->pdo) {
+            throw new Exception("PDO not injected into PaymentModel");
+        }
 
-            $sql = "INSERT INTO payments 
+            $stmt = $this->pdo->prepare("
+                INSERT INTO payments 
                 (payment_code, booking_id, amount, type, method, status, created_at)
-                VALUES (:code, :booking_id, :amount, 'FULL', 'BANK_TRANSFER', 'PENDING', NOW())";
+                VALUES (?, ?, ?, 'FULL', 'BANK_TRANSFER', 'PENDING', NOW())
+            ");
+        $sql = "INSERT INTO payments 
+            (booking_id, amount, type, method, status)
+            VALUES (:booking_id, :amount, 'FULL', 'TRANSFER', 'PENDING')";
 
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                ':code' => $payment_code,
-                ':booking_id' => $booking_id,
-                ':amount' => $total_amount,
-            ]);
-
+            $stmt->execute([$payment_code, $booking_id, $total_amount]);
             return $this->pdo->lastInsertId();
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':booking_id' => $booking_id,
+            ':amount' => $total_amount,
+        ]);
 
         } catch (\Throwable $e) {
             error_log("CreateInitialPayment Error: " . $e->getMessage());
             return null;
         }
+        return $this->pdo->lastInsertId();
     }
 
 
@@ -143,7 +142,6 @@ class PaymentModel
             $this->pdo->commit();
 
             return ['ok' => true, 'payment_id' => $payment_id];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -172,6 +170,35 @@ class PaymentModel
         }
     }
 
+    /**
+     * ✅ TẠO PAYMENT HOÀN TIỀN (số âm)
+     */
+    public function createRefundPayment($booking_id, $refundAmount, $reason = '')
+    {
+        try {
+            $paymentCode = 'REF-' . date('ymd') . '-' . rand(1000, 9999);
+
+            $stmt = $this->pdo->prepare("
+            INSERT INTO payments 
+            (booking_id, payment_code, amount, method, paid_at, status, note)
+            VALUES (?, ?, ?, 'REFUND', NOW(), 'COMPLETED', ?)
+        ");
+
+            // ✅ Số tiền âm để đánh dấu là hoàn tiền
+            $stmt->execute([
+                $booking_id,
+                $paymentCode,
+                -abs($refundAmount), // Luôn âm
+                $reason ?: 'Hoàn tiền'
+            ]);
+
+            return $this->pdo->lastInsertId();
+
+        } catch (\Throwable $e) {
+            error_log("CreateRefundPayment Error: " . $e->getMessage());
+            return null;
+        }
+    }
     /** ========================
      *  📊 TÍNH TỔNG TIỀN ĐÃ THANH TOÁN
      *  ======================== */
@@ -222,7 +249,6 @@ class PaymentModel
             } else {
                 return 'DEPOSIT_PAID';
             }
-
         } catch (\Throwable $e) {
             error_log("GetPaymentStatus Error: " . $e->getMessage());
             return 'PENDING';
@@ -242,7 +268,6 @@ class PaymentModel
             $stmt = $this->pdo->prepare("SELECT status, total_amount FROM bookings WHERE id = ?");
             $stmt->execute([$booking_id]);
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-
             if (!$booking)
                 return;
 
@@ -311,7 +336,6 @@ class PaymentModel
             $this->pdo->commit();
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -367,7 +391,6 @@ class PaymentModel
             $this->pdo->commit();
 
             return ['ok' => true];
-
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();

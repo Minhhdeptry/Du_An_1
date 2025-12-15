@@ -13,86 +13,78 @@
         <h1 class="mb-4">📊 Báo cáo tour</h1>
 
         <form class="row g-2 mb-4" method="get" action="index.php">
+            <input type="hidden" name="module" value="report">
             <input type="hidden" name="act" value="admin-report">
 
-            <label for="year" class="col-auto col-form-label">Chọn năm:</label>
+            <label class="col-auto col-form-label">Chọn năm:</label>
             <div class="col-auto">
-                <input type="number" name="year" id="year" class="form-control"
-                    value="<?php echo isset($_GET['year']) ? intval($_GET['year']) : date('Y'); ?>">
+                <input type="number" name="year" class="form-control"
+                       value="<?= isset($_GET['year']) ? intval($_GET['year']) : date('Y') ?>">
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-primary">Xem</button>
+                <button class="btn btn-primary">Xem</button>
             </div>
         </form>
 
-
+        <!-- Biểu đồ -->
         <div class="row mb-5">
+            <!-- Doanh thu -->
             <div class="col-12 col-lg-6 mb-4">
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white">Doanh thu tour mỗi tháng</div>
                     <div class="card-body">
-                        <canvas id="revenueChart"></canvas>
+                        <canvas id="revenueChart" height="120"></canvas>
                     </div>
                 </div>
             </div>
 
+            <!-- Tổng khách -->
             <div class="col-12 col-lg-6 mb-4">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-success text-white">Tổng khách theo tour mỗi tháng</div>
+                    <div class="card-header bg-success text-white">Tổng khách theo tháng</div>
                     <div class="card-body">
-                        <canvas id="customerChart"></canvas>
+                        <canvas id="customerChart" height="120"></canvas>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <?php
-    // Chuẩn bị datasets cho Chart.js
-    
-    $colors = ['rgba(40,167,69,0.7)', 'rgba(54,162,235,0.7)', 'rgba(255,99,132,0.7)', 'rgba(255,206,86,0.7)', 'rgba(153,102,255,0.7)', 'rgba(255,159,64,0.7)'];
+    <?php 
+    // Chuẩn bị dữ liệu PHP -> JS
 
-    // Datasets doanh thu
-    $revenueDatasets = [];
-    $i = 0;
-    foreach ($revenueData as $tour => $monthsData) {
-        $revenueDatasets[] = [
-            'label' => $tour,
-            'data' => array_values($monthsData), // 12 tháng
-            'borderColor' => str_replace('0.7', '1', $colors[$i % count($colors)]),
-            'backgroundColor' => $colors[$i % count($colors)],
-            'fill' => false,
-            'tension' => 0.3
-        ];
-        $i++;
+    // dataset doanh thu (12 tháng)
+    $revenueMonths = array_fill(1, 12, 0);
+    foreach ($revenueByMonth as $row) {
+        $revenueMonths[intval($row["month"])] = floatval($row["total_revenue"]);
     }
 
-    // Datasets tổng khách
-    $customerDatasets = [];
-    $i = 0;
-    foreach ($customerData as $tour => $monthsData) {
-        $customerDatasets[] = [
-            'label' => $tour,
-            'data' => array_values($monthsData), // 12 tháng
-            'borderColor' => str_replace('0.7', '1', $colors[$i % count($colors)]),
-            'backgroundColor' => $colors[$i % count($colors)],
-            'fill' => false,
-            'tension' => 0.3
-        ];
-        $i++;
+    // dataset tổng khách (12 tháng)
+    $customerMonths = array_fill(1, 12, 0);
+    foreach ($customerByMonth as $row) {
+        $customerMonths[intval($row["month"])] = intval($row["total_customers"]);
     }
     ?>
 
     <script>
-        const months = <?php echo json_encode(range(1, 12)); ?>;
+        const labels = [1,2,3,4,5,6,7,8,9,10,11,12];
 
-        // Doanh thu chart
-        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-        new Chart(revenueCtx, {
+        const revenueData = <?= json_encode(array_values($revenueMonths)) ?>;
+        const customerData = <?= json_encode(array_values($customerMonths)) ?>;
+
+        // --- BIỂU ĐỒ DOANH THU ---
+        new Chart(document.getElementById('revenueChart'), {
             type: 'line',
             data: {
-                labels: months,
-                datasets: <?php echo json_encode($revenueDatasets); ?>
+                labels: labels,
+                datasets: [{
+                    label: "Doanh thu",
+                    data: revenueData,
+                    borderColor: 'rgba(54,162,235,1)',
+                    backgroundColor: 'rgba(54,162,235,0.4)',
+                    fill: true,
+                    tension: 0.3
+                }]
             },
             options: {
                 responsive: true,
@@ -101,21 +93,28 @@
             }
         });
 
-        // Tổng khách chart
-        const customerCtx = document.getElementById('customerChart').getContext('2d');
-        new Chart(customerCtx, {
+        // --- BIỂU ĐỒ KHÁCH ---
+        new Chart(document.getElementById('customerChart'), {
             type: 'line',
             data: {
-                labels: months,
-                datasets: <?php echo json_encode($customerDatasets); ?>
+                labels: labels,
+                datasets: [{
+                    label: "Số khách",
+                    data: customerData,
+                    borderColor: 'rgba(40,167,69,1)',
+                    backgroundColor: 'rgba(40,167,69,0.4)',
+                    fill: true,
+                    tension: 0.3
+                }]
             },
             options: {
                 responsive: true,
-                plugins: { title: { display: true, text: 'Tổng khách theo tour mỗi tháng' } },
+                plugins: { title: { display: true, text: 'Tổng khách theo tháng' } },
                 scales: { y: { beginAtZero: true } }
             }
         });
     </script>
-</body>
 
+
+</body>
 </html>

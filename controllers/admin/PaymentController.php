@@ -10,8 +10,9 @@ class PaymentController
     public function __construct()
     {
         require_once "./commons/function.php";
-        $this->paymentModel = new PaymentModel();
-        $this->bookingModel = new BookingModel();
+        $pdo = connectDB();
+        $this->paymentModel = new PaymentModel($pdo);
+        $this->bookingModel = new BookingModel($pdo);
     }
 
     // ============ DANH SÁCH TẤT CẢ PAYMENTS ============

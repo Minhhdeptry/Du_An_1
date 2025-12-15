@@ -13,20 +13,32 @@
         <div class="form-group mb-3">
             <label class="fw-bold">Tên chứng chỉ <span class="text-danger">*</span></label>
             <input type="text" name="certificate_name" class="form-control" required
+<<<<<<< HEAD
                 value="<?= htmlspecialchars($certificate['certificate_name']) ?>">
+=======
+                   value="<?= htmlspecialchars($certificate['certificate_name']) ?>">
+>>>>>>> feat/signin-signup
         </div>
 
         <div class="row">
             <div class="col-md-6 form-group mb-3">
                 <label class="fw-bold">Số chứng chỉ</label>
                 <input type="text" name="certificate_number" class="form-control"
+<<<<<<< HEAD
                     value="<?= htmlspecialchars($certificate['certificate_number'] ?? '') ?>">
+=======
+                       value="<?= htmlspecialchars($certificate['certificate_number'] ?? '') ?>">
+>>>>>>> feat/signin-signup
             </div>
 
             <div class="col-md-6 form-group mb-3">
                 <label class="fw-bold">Đơn vị cấp</label>
                 <input type="text" name="issuing_organization" class="form-control"
+<<<<<<< HEAD
                     value="<?= htmlspecialchars($certificate['issuing_organization'] ?? '') ?>">
+=======
+                       value="<?= htmlspecialchars($certificate['issuing_organization'] ?? '') ?>">
+>>>>>>> feat/signin-signup
             </div>
         </div>
 
@@ -34,13 +46,21 @@
             <div class="col-md-6 form-group mb-3">
                 <label class="fw-bold">Ngày cấp</label>
                 <input type="date" name="issue_date" class="form-control"
+<<<<<<< HEAD
                     value="<?= htmlspecialchars($certificate['issue_date'] ?? '') ?>">
+=======
+                       value="<?= htmlspecialchars($certificate['issue_date'] ?? '') ?>">
+>>>>>>> feat/signin-signup
             </div>
 
             <div class="col-md-6 form-group mb-3">
                 <label class="fw-bold">Ngày hết hạn</label>
                 <input type="date" name="expiry_date" class="form-control"
+<<<<<<< HEAD
                     value="<?= htmlspecialchars($certificate['expiry_date'] ?? '') ?>">
+=======
+                       value="<?= htmlspecialchars($certificate['expiry_date'] ?? '') ?>">
+>>>>>>> feat/signin-signup
             </div>
         </div>
 

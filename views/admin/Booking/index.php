@@ -165,8 +165,8 @@
 
                                 <td>
                                     <code class="bg-light px-2 py-1 rounded">
-                                                <?= htmlspecialchars($b['booking_code']) ?>
-                                            </code>
+                                                        <?= htmlspecialchars($b['booking_code']) ?>
+                                                    </code>
                                 </td>
 
                                 <td>
@@ -244,6 +244,10 @@
 
                                 <td class="text-center">
                                     <div class="btn-group btn-group-sm" role="group">
+                                        <a href="index.php?act=admin-booking-customer&booking_id=<?= $b['id'] ?>"
+                                            class="btn btn-sm btn-info" title="Danh sách khách">
+                                            <i class="bi bi-people"></i> Khách
+                                        </a>
                                         <!-- Nút Sửa -->
                                         <a href="index.php?act=admin-booking-edit&id=<?= $b['id'] ?>" class="btn btn-warning"
                                             title="Sửa booking">

@@ -15,13 +15,9 @@ class AuthController
     {
         // Nếu đã login, redirect
         if (isset($_SESSION['user'])) {
-            $role = $_SESSION['user']['role'] ?? null;
-            $_SESSION['role'] = $role; // Đảm bảo lưu role riêng biệt
-            $_SESSION['full_name'] = $_SESSION['user']['full_name'] ?? '';
+            $role = $_SESSION['user']['role'];
             if ($role === 'ADMIN') {
                 header("Location: index.php?act=dashboard");
-            } else if ($role === 'HDV') {
-                header("Location: index.php?act=admin-staff-assigned-tours");
             } else {
                 header("Location: index.php");
             }
@@ -44,22 +40,18 @@ class AuthController
 
             if (empty($errors)) {
                 $result = $this->authModel->signIn([
-                    'email' => $email,
+                    'email' => $email, 
                     'password' => $password
                 ]);
 
                 if ($result['success']) {
                     // ✅ Lưu user vào session
                     $_SESSION['user'] = $result['user'];
-                    $_SESSION['role'] = $result['user']['role'] ?? null; // Lưu role riêng biệt
-                    $_SESSION['full_name'] = $result['user']['full_name'] ?? '';
 
                     // Redirect theo role
-                    $role = $_SESSION['role'];
+                    $role = $result['user']['role'];
                     if ($role === 'ADMIN') {
                         header("Location: index.php?act=dashboard");
-                    } else if ($role === 'HDV') {
-                        header("Location: index.php?act=admin-staff-assigned-tours");
                     } else {
                         header("Location: index.php");
                     }
@@ -84,6 +76,8 @@ class AuthController
             $role = $_SESSION['user']['role'];
             if ($role === 'ADMIN') {
                 header("Location: index.php?act=dashboard");
+            } elseif ($role === 'HDV') {
+                header("Location: index.php?act=assigned-tours");
             } else {
                 header("Location: index.php");
             }
