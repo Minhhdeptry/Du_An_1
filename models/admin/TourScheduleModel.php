@@ -69,7 +69,6 @@ class TourScheduleModel
             $stmt2->execute([$today]);
 
             // ✅ CASE 3: Tour chưa đến lịch → OPEN (nếu đang là CLOSED)
-            // Chỉ áp dụng cho tour đã đóng do hết hạn, không ảnh hưởng CANCELED
             $sql3 = "UPDATE tour_schedule
                      SET status = 'OPEN'
                      WHERE depart_date >= ?
@@ -77,12 +76,10 @@ class TourScheduleModel
             $stmt3 = $this->pdo->prepare($sql3);
             $stmt3->execute([$today]);
 
-
         } catch (PDOException $e) {
             error_log("AutoUpdateScheduleStatus Error: " . $e->getMessage());
         }
     }
-
 
     public function searchByKeyword($keyword)
     {
@@ -106,16 +103,8 @@ class TourScheduleModel
             ORDER BY ts.id DESC";
 
         $stmt = $this->pdo->prepare($sql);
-
-        // ✅ FIX: Cần 5 tham số vì có 5 dấu ? trong WHERE
         $searchTerm = "%$keyword%";
-        $stmt->execute([
-            $searchTerm,  // t.title LIKE ?
-            $searchTerm,  // t.code LIKE ?
-            $searchTerm,  // ts.depart_date LIKE ?
-            $searchTerm,  // ts.return_date LIKE ?
-            $searchTerm   // c.name LIKE ?
-        ]);
+        $stmt->execute([$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -127,105 +116,158 @@ class TourScheduleModel
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Tạo lịch mới
+    // ✅ FIX: Tạo lịch mới
     public function store($data)
     {
-        // Xử lý loại tour
-        $tourType = $data['tour_type'] ?? 'REGULAR';
-        $seatsTotal = ($tourType === 'ON_DEMAND') ? 0 : ($data['seats_total'] ?? 0);
-        $seatsAvailable = $seatsTotal;
+        try {
+            // Xử lý loại tour
+            $tourType = $data['tour_type'] ?? 'REGULAR';
+            $seatsTotal = ($tourType === 'ON_DEMAND') ? 0 : ($data['seats_total'] ?? 0);
+            $seatsAvailable = $seatsTotal;
 
-        $sql = "INSERT INTO tour_schedule 
-                (tour_id, tour_type, depart_date, return_date, seats_total, seats_available, price_adult, price_children, status, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            $data['tour_id'],
-            $tourType,
-            $data['depart_date'],
-            $data['return_date'],
-            $seatsTotal,
-            $seatsAvailable,
-            $data['price_adult'],
-            $data['price_children'],
-            $data['status'],
-            $data['note'] ?? null
-        ]);
+            $sql = "INSERT INTO tour_schedule 
+                    (tour_id, tour_type, depart_date, return_date, seats_total, seats_available, 
+                     price_adult, price_children, status, note, is_custom_request)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt = $this->pdo->prepare($sql);
+            
+            // ✅ Xác định is_custom_request dựa vào tour_type
+            $isCustomRequest = ($tourType === 'ON_DEMAND') ? 1 : 0;
+            
+            $result = $stmt->execute([
+                $data['tour_id'],
+                $tourType,
+                $data['depart_date'],
+                $data['return_date'],
+                $seatsTotal,
+                $seatsAvailable,
+                $data['price_adult'],
+                $data['price_children'],
+                $data['status'],
+                $data['note'] ?? null,
+                $isCustomRequest
+            ]);
+
+            if ($result) {
+                error_log("✅ Schedule created successfully: Tour #{$data['tour_id']}, Type: {$tourType}");
+                return true;
+            }
+
+            error_log("❌ Schedule creation failed");
+            return false;
+
+        } catch (PDOException $e) {
+            error_log("❌ Schedule store error: " . $e->getMessage());
+            error_log("SQL Error: " . print_r($stmt->errorInfo(), true));
+            return false;
+        }
     }
 
-    // Cập nhật lịch
+    // ✅ FIX: Cập nhật lịch
     public function update($id, $data)
     {
-        // Xử lý loại tour
-        $tourType = $data['tour_type'] ?? 'REGULAR';
-        $seatsTotal = ($tourType === 'ON_DEMAND') ? 0 : ($data['seats_total'] ?? 0);
+        try {
+            // Xử lý loại tour
+            $tourType = $data['tour_type'] ?? 'REGULAR';
+            $seatsTotal = ($tourType === 'ON_DEMAND') ? 0 : ($data['seats_total'] ?? 0);
 
-        $sql = "UPDATE tour_schedule SET
-                tour_id=?, tour_type=?, depart_date=?, return_date=?, seats_total=?, 
-                price_adult=?, price_children=?, status=?, note=?
-                WHERE id=?";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            $data['tour_id'],
-            $tourType,
-            $data['depart_date'],
-            $data['return_date'],
-            $seatsTotal,
-            $data['price_adult'],
-            $data['price_children'],
-            $data['status'],
-            $data['note'] ?? null,
-            $id
-        ]);
+            $sql = "UPDATE tour_schedule SET
+                    tour_id=?, tour_type=?, depart_date=?, return_date=?, seats_total=?, 
+                    price_adult=?, price_children=?, status=?, note=?, is_custom_request=?
+                    WHERE id=?";
+            
+            $stmt = $this->pdo->prepare($sql);
+            
+            // ✅ Xác định is_custom_request dựa vào tour_type
+            $isCustomRequest = ($tourType === 'ON_DEMAND') ? 1 : 0;
+            
+            $result = $stmt->execute([
+                $data['tour_id'],
+                $tourType,
+                $data['depart_date'],
+                $data['return_date'],
+                $seatsTotal,
+                $data['price_adult'],
+                $data['price_children'],
+                $data['status'],
+                $data['note'] ?? null,
+                $isCustomRequest,
+                $id
+            ]);
 
-        // Cập nhật seats_available dựa trên booking hiện tại
-        if ($tourType === 'REGULAR') {
-            $this->updateSeats($id);
-        } else {
-            // Tour ON_DEMAND: set seats_available = 0
-            $stmt = $this->pdo->prepare("UPDATE tour_schedule SET seats_available = 0 WHERE id = ?");
-            $stmt->execute([$id]);
+            if ($result) {
+                // Cập nhật seats_available dựa trên booking hiện tại
+                if ($tourType === 'REGULAR') {
+                    $this->updateSeats($id);
+                } else {
+                    // Tour ON_DEMAND: set seats_available = 0
+                    $stmt = $this->pdo->prepare("UPDATE tour_schedule SET seats_available = 0 WHERE id = ?");
+                    $stmt->execute([$id]);
+                }
+
+                error_log("✅ Schedule updated successfully: ID #{$id}, Type: {$tourType}");
+                return true;
+            }
+
+            error_log("❌ Schedule update failed for ID #{$id}");
+            return false;
+
+        } catch (PDOException $e) {
+            error_log("❌ Schedule update error: " . $e->getMessage());
+            error_log("SQL Error: " . print_r($stmt->errorInfo(), true));
+            return false;
         }
     }
 
     // Xóa lịch
     public function delete($id)
     {
-        $stmt = $this->pdo->prepare("DELETE FROM tour_schedule WHERE id=?");
-        $stmt->execute([$id]);
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM tour_schedule WHERE id=?");
+            return $stmt->execute([$id]);
+        } catch (PDOException $e) {
+            error_log("❌ Schedule delete error: " . $e->getMessage());
+            return false;
+        }
     }
 
     // Cập nhật seats_available dựa trên booking hiện tại (chỉ cho REGULAR)
     public function updateSeats($schedule_id)
     {
-        // Kiểm tra loại tour
-        $stmt = $this->pdo->prepare("SELECT tour_type FROM tour_schedule WHERE id = ?");
-        $stmt->execute([$schedule_id]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $tourType = $result['tour_type'] ?? 'REGULAR';
+        try {
+            // Kiểm tra loại tour
+            $stmt = $this->pdo->prepare("SELECT tour_type FROM tour_schedule WHERE id = ?");
+            $stmt->execute([$schedule_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $tourType = $result['tour_type'] ?? 'REGULAR';
 
-        // Chỉ update nếu là REGULAR
-        if ($tourType !== 'REGULAR') {
-            return;
+            // Chỉ update nếu là REGULAR
+            if ($tourType !== 'REGULAR') {
+                return;
+            }
+
+            // Tổng số người đã đặt (status còn hiệu lực)
+            $stmt = $this->pdo->prepare("
+                SELECT SUM(adults + children) AS booked
+                FROM bookings
+                WHERE tour_schedule_id = ? AND status IN ('PENDING','CONFIRMED','PAID','COMPLETED')
+            ");
+            $stmt->execute([$schedule_id]);
+            $booked = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['booked'] ?? 0);
+
+            // Lấy tổng số ghế
+            $stmt2 = $this->pdo->prepare("SELECT seats_total FROM tour_schedule WHERE id = ?");
+            $stmt2->execute([$schedule_id]);
+            $seats_total = (int) $stmt2->fetch(PDO::FETCH_ASSOC)['seats_total'];
+
+            // Cập nhật seats_available = seats_total - booked
+            $stmt3 = $this->pdo->prepare("UPDATE tour_schedule SET seats_available = ? WHERE id = ?");
+            $stmt3->execute([$seats_total - $booked, $schedule_id]);
+
+        } catch (PDOException $e) {
+            error_log("❌ UpdateSeats error: " . $e->getMessage());
         }
-
-        // Tổng số người đã đặt (status còn hiệu lực)
-        $stmt = $this->pdo->prepare("
-            SELECT SUM(adults + children) AS booked
-            FROM bookings
-            WHERE tour_schedule_id = ? AND status IN ('PENDING','CONFIRMED','PAID','COMPLETED')
-        ");
-        $stmt->execute([$schedule_id]);
-        $booked = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['booked'] ?? 0);
-
-        // Lấy tổng số ghế
-        $stmt2 = $this->pdo->prepare("SELECT seats_total FROM tour_schedule WHERE id = ?");
-        $stmt2->execute([$schedule_id]);
-        $seats_total = (int) $stmt2->fetch(PDO::FETCH_ASSOC)['seats_total'];
-
-        // Cập nhật seats_available = seats_total - booked
-        $stmt3 = $this->pdo->prepare("UPDATE tour_schedule SET seats_available = ? WHERE id = ?");
-        $stmt3->execute([$seats_total - $booked, $schedule_id]);
     }
 
     public function hasBooking($schedule_id)
@@ -239,13 +281,12 @@ class TourScheduleModel
     public function getBookingCount($schedule_id)
     {
         $stmt = $this->pdo->prepare("
-        SELECT COUNT(*) as booking_count
-        FROM bookings
-        WHERE tour_schedule_id = ?
-          AND status NOT IN ('CANCELED')
-    ");
+            SELECT COUNT(*) as booking_count
+            FROM bookings
+            WHERE tour_schedule_id = ?
+              AND status NOT IN ('CANCELED')
+        ");
         $stmt->execute([$schedule_id]);
         return (int) $stmt->fetchColumn();
     }
-
 }

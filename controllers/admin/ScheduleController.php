@@ -44,11 +44,16 @@ class ScheduleController
 
     public function store()
     {
-        $this->model->store($_POST); // store đã tự set seats_available
+        error_log("=== SCHEDULE STORE DEBUG ===");
+        error_log("POST data: " . print_r($_POST, true));
+
+        $result = $this->model->store($_POST);
+
+        error_log("Store result: " . ($result ? "SUCCESS" : "FAILED"));
+
         header("Location: index.php?act=admin-schedule");
         exit;
     }
-
     public function edit($act)
     {
         $id = $_GET["id"];
@@ -64,8 +69,14 @@ class ScheduleController
 
     public function update()
     {
+        error_log("=== SCHEDULE UPDATE DEBUG ===");
+        error_log("POST data: " . print_r($_POST, true));
+
         $id = $_POST["id"];
-        $this->model->update($id, $_POST); // updateSeats tự gọi trong model
+        $result = $this->model->update($id, $_POST);
+
+        error_log("Update result: " . ($result ? "SUCCESS" : "FAILED"));
+
         header("Location: index.php?act=admin-schedule");
         exit;
     }
