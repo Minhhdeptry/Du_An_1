@@ -6,18 +6,31 @@
 require_once "./models/admin/StaffModel.php";
 require_once "./models/admin/StaffTourHistoryModel.php";
 require_once "./models/admin/TourScheduleModel.php";
+require_once "./models/admin/BookingCustomerModel.php";
+require_once "./models/admin/BookingModel.php";
 
 class StaffScheduleController
 {
     private $staffModel;
     private $historyModel;
     private $scheduleModel;
+    private $bookingCustomerModel;
+    private $bookingModel;
 
     public function __construct()
     {
-        $this->staffModel = new StaffModel();
-        $this->historyModel = new StaffTourHistoryModel();
-        $this->scheduleModel = new TourScheduleModel();
+        // $this->staffModel = new StaffModel();
+        // $this->historyModel = new StaffTourHistoryModel();
+        // $this->scheduleModel = new TourScheduleModel();
+        // $this->bookingCustomerModel = new BookingCustomerModel();
+        // $this->bookingModel = new BookingModel();
+        $pdo = connectDB();
+
+        $this->staffModel = new StaffModel($pdo);
+        $this->historyModel = new StaffTourHistoryModel($pdo);
+        $this->scheduleModel = new TourScheduleModel($pdo);
+        $this->bookingCustomerModel = new BookingCustomerModel($pdo);
+        $this->bookingModel = new BookingModel($pdo);
     }
 
     /**
@@ -521,6 +534,58 @@ class StaffScheduleController
         exit;
     }
 
+    public function assignedTours($currentAct = null)
+    {
+        // Kiểm tra đăng nhập
+        if (!isset($_SESSION['user'])) {
+            header("Location: index.php?act=sign-in");
+            exit;
+        }
+
+        $userId = $_SESSION['user']['id'];
+
+        // Lấy thông tin staff
+        $staff = $this->staffModel->getStaffByUserId($userId);
+
+        if (!$staff) {
+            $_SESSION['error'] = "Không tìm thấy thông tin hướng dẫn viên!";
+            header("Location: index.php?act=sign-in");
+            exit;
+        }
+
+        $staff_id = $staff['id'];
+
+        // Query danh sách tour
+        $pdo = $this->staffModel->getConnection();
+        $sql = "SELECT 
+                ts.id,
+                ts.depart_date,
+                ts.return_date,
+                ts.status,
+                t.title AS tour_name,
+                t.code AS tour_code
+            FROM tour_schedule ts
+            JOIN tours t ON ts.tour_id = t.id
+            JOIN staff_tour_history sth ON ts.id = sth.tour_schedule_id
+            WHERE sth.staff_id = ?
+            ORDER BY ts.depart_date DESC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$staff_id]);
+        $assignedTours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $pageTitle = "Tours Được Phân Công";
+        $currentAct = $currentAct ?? 'assigned-tours';
+        $view = "./views/admin/Staff/assignedTours.php";
+        include "./views/layout/adminLayout.php";
+    }
+
+    public function tourDetail($tour_schedule_id, $currentAct = null) 
+    {
+        $pageTitle = "Chi tiết tour - Check-in khách";
+        $view = "./views/admin/Staff/tourDetail.php";
+        include "./views/layout/adminLayout.php";
+    }
 
 }
 ?>

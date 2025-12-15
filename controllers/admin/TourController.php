@@ -79,9 +79,9 @@ class TourController
             $_POST["policy"],
             $imageName,
             $_POST["is_active"],
-            $_POST["default_seats"] ?? 30  // ✅ Thêm dòng này
+            $_POST["default_seats"] ?? 30 
         ]);
-
+        
         header("Location: index.php?act=admin-tour");
         exit;
     }
@@ -142,7 +142,7 @@ class TourController
     {
         $id = $_GET["id"];
         $this->model->delete($id);
-
+        $_SESSION['success'] = "✅ Xóa tour thành công";
         header("Location: index.php?act=admin-tour");
         exit;
     }

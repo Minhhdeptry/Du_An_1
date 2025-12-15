@@ -9,14 +9,10 @@ class BookingController
 
     public function __construct()
     {
-        $this->bookingModel = new BookingModel();
-        $this->itemModel = new BookingItemModel();
+        $pdo = connectDB();
+        $this->bookingModel = new BookingModel($pdo);
+        $this->itemModel = new BookingItemModel($pdo);
     }
-
-    /** ------------------------
-     *  Danh sách booking
-     */
-    // controllers/admin/BookingController.php
 
     public function index(string $act): void
     {
@@ -25,12 +21,10 @@ class BookingController
             ? $this->bookingModel->searchByKeyword($keyword)
             : $this->bookingModel->getAll();
 
-        // ✅ THÊM: Lấy trạng thái thanh toán cho mỗi booking
         foreach ($bookings as &$booking) {
             $booking['payment_status'] = $this->bookingModel->getPaymentStatus($booking['id']);
         }
 
-        // Lấy trạng thái từ Model
         $statusText = BookingModel::$statusLabels;
         $statusColor = [
             'PENDING' => 'warning',
@@ -46,13 +40,8 @@ class BookingController
         include "./views/layout/adminLayout.php";
     }
 
-    /** ------------------------
-     * Form tạo booking theo schedule
-     */
-
     public function createForm(string $act): void
     {
-        // Lấy danh sách lịch mở (OPEN)
         $schedules = $this->bookingModel->getOpenSchedules();
 
         if (empty($schedules)) {
@@ -61,45 +50,27 @@ class BookingController
             exit;
         }
 
-        // ✅ FIX: Kiểm tra và set lại is_custom_request ĐÚNG
         foreach ($schedules as &$schedule) {
             $schedule_id = $schedule['id'];
-
-            // ✅ Lấy từ DB để đảm bảo chính xác
             $stmt = $this->bookingModel->getConnection()->prepare("
-            SELECT 
-                ts.is_custom_request,
-                ts.seats_total,
-                t.is_custom
-            FROM tour_schedule ts
-            LEFT JOIN tours t ON t.id = ts.tour_id
-            WHERE ts.id = ?
-        ");
+                SELECT ts.is_custom_request, ts.seats_total, t.is_custom
+                FROM tour_schedule ts
+                LEFT JOIN tours t ON t.id = ts.tour_id
+                WHERE ts.id = ?
+            ");
             $stmt->execute([$schedule_id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($result) {
-                // ✅ LOGIC ĐÚNG: Tour custom = is_custom_request = 1 HOẶC tour.is_custom = 1
                 $isScheduleCustom = (int) ($result['is_custom_request'] ?? 0) === 1;
                 $isTourCustom = (int) ($result['is_custom'] ?? 0) === 1;
                 $seatsTotal = (int) ($result['seats_total'] ?? 0);
 
-                // ✅ CHUẨN HÓA: Nếu seats_total = 0 → CHẮC CHẮN là custom
                 if ($seatsTotal === 0) {
                     $schedule['is_custom_request'] = 1;
                 } else {
                     $schedule['is_custom_request'] = ($isScheduleCustom || $isTourCustom) ? 1 : 0;
                 }
-
-                // Debug
-                error_log(sprintf(
-                    "Schedule #%d: %s | Original is_custom_request=%d | Seats=%d | Final is_custom_request=%d",
-                    $schedule_id,
-                    $schedule['tour_title'],
-                    (int) $result['is_custom_request'],
-                    $seatsTotal,
-                    $schedule['is_custom_request']
-                ));
             }
         }
 
@@ -109,87 +80,36 @@ class BookingController
         include "./views/layout/adminLayout.php";
     }
 
-
-    /** ------------------------
-     *  ✅ FIX: Helper - Lấy tours kèm giá adult_price, child_price
-     */
-    private function getToursList(): array
-    {
-        try {
-            $stmt = $this->bookingModel->getConnection()->prepare("
-                SELECT t.id, t.code, t.title, t.duration_days,
-                       t.adult_price, t.child_price,
-                       c.name AS category_name
-                FROM tours t
-                LEFT JOIN tour_category c ON c.id = t.category_id
-                WHERE t.is_active = 1
-                ORDER BY t.title ASC
-            ");
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (\Throwable $e) {
-            error_log("GetToursList Error: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    /** ------------------------
-     *  Xử lý tạo booking
-     */
     public function store(): void
     {
-        // ✅ Lấy author_id từ session
         $author_id = $_SESSION['user_id'] ?? null;
-
         $data = $_POST;
 
-        // ✅ THÊM: Kiểm tra chỗ trống TRƯỚC KHI TẠO
-        // (Chỉ check với tour thường, tour custom thì bỏ qua)
-        if (!empty($data['tour_id'])) {
-            // Lấy schedule_id từ tour
-            $tour_id = (int) $data['tour_id'];
+        // Kiểm tra capacity cho tour thường
+        if (!empty($data['tour_schedule_id'])) {
+            $schedule_id = (int) $data['tour_schedule_id'];
             $adults = (int) ($data['adults'] ?? 0);
             $children = (int) ($data['children'] ?? 0);
 
-            // Tìm schedule gần nhất của tour này
-            $stmt = $this->bookingModel->getConnection()->prepare("
-            SELECT id FROM tour_schedule 
-            WHERE tour_id = ? 
-              AND depart_date >= CURDATE() 
-              AND status = 'OPEN'
-              AND is_custom_request = 0
-            ORDER BY depart_date ASC 
-            LIMIT 1
-        ");
-            $stmt->execute([$tour_id]);
-            $schedule = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($schedule) {
-                $schedule_id = $schedule['id'];
-
-                // Check capacity
-                if (!$this->bookingModel->checkCapacity($schedule_id, $adults, $children)) {
-                    $_SESSION['error'] = "❌ Không đủ chỗ! Tour này đã hết chỗ. Vui lòng chọn tour khác.";
-                    $_SESSION['old_data'] = $data;
-                    header("Location: index.php?act=admin-booking-create");
-                    exit;
-                }
+            if (!$this->bookingModel->checkCapacity($schedule_id, $adults, $children)) {
+                $_SESSION['error'] = "❌ Không đủ chỗ! Tour này đã hết chỗ.";
+                $_SESSION['old_data'] = $data;
+                header("Location: index.php?act=admin-booking-create");
+                exit;
             }
         }
 
-        // ✅ Tiếp tục tạo booking
         $res = $this->bookingModel->create($data, $author_id);
 
         if ($res['ok'] ?? false) {
             $booking_id = $res['booking_id'];
 
-            // ✅ Thêm items nếu có (dịch vụ bổ sung)
             if (!empty($data['items']) && is_array($data['items'])) {
                 foreach ($data['items'] as $item) {
-                    if (!empty($item['description']) && !empty($item['qty'])) {
+                    if (!empty(trim($item['description'] ?? '')) && !empty($item['qty'])) {
                         $this->itemModel->addItem(
                             $booking_id,
-                            $item['description'],
+                            trim($item['description']),
                             (int) ($item['qty']),
                             (float) ($item['unit_price'] ?? 0),
                             $item['type'] ?? 'SERVICE'
@@ -197,25 +117,21 @@ class BookingController
                     }
                 }
             }
+            $this->bookingModel->recalculateTotal($booking_id);
 
-            // ✅ Flash message với booking_code từ response
+
             $booking = $this->bookingModel->find($booking_id);
             $_SESSION['success'] = "✅ Tạo booking thành công! Mã: " . ($booking['booking_code'] ?? 'N/A');
             header("Location: index.php?act=admin-booking");
             exit;
         }
 
-        // ❌ Xử lý lỗi - Hiển thị lại form
         $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Tạo booking thất bại']);
-        $_SESSION['old_data'] = $data; // Giữ lại dữ liệu đã nhập
-
+        $_SESSION['old_data'] = $data;
         header("Location: index.php?act=admin-booking-create");
         exit;
     }
 
-    /** ------------------------
-     *  Form sửa booking (CHỈ CUSTOM REQUEST)
-     */
     public function edit(string $act): void
     {
         $id = (int) ($_GET['id'] ?? 0);
@@ -227,13 +143,8 @@ class BookingController
             exit;
         }
 
-        // ✅ THÊM: Lấy trạng thái thanh toán
         $booking['payment_status'] = $this->bookingModel->getPaymentStatus($id);
-
-        // ✅ Lấy danh sách lịch tour mở (OPEN) cho dropdown chọn schedule
         $schedules = $this->bookingModel->getOpenSchedules();
-
-        // ✅ Lấy items, lịch sử trạng thái, trạng thái text
         $items = $this->itemModel->getItemsByBooking($id);
         $statusHistory = $this->bookingModel->getStatusHistory($id);
         $statusText = BookingModel::$statusLabels;
@@ -244,39 +155,33 @@ class BookingController
         include "./views/layout/adminLayout.php";
     }
 
-
-
-    /** ------------------------
-     *  Xử lý cập nhật booking
-     */
     public function update(): void
     {
         $id = (int) ($_POST['id'] ?? 0);
         $author_id = $_SESSION['user_id'] ?? null;
-
         $data = $_POST;
 
-        // ✅ Gọi model để xử lý update (đã có validation đầy đủ trong model)
-        $res = $this->bookingModel->update($id, $data, $author_id);
-
-        if ($res['ok'] ?? false) {
-            // ✅ Xử lý items (dịch vụ bổ sung)
+        try {
             $this->handleBookingItems($id, $data);
 
-            $_SESSION['success'] = "✅ Cập nhật booking thành công!";
-            header("Location: index.php?act=admin-booking");
-            exit;
+            $res = $this->bookingModel->update($id, $data, $author_id);
+
+            if ($res['ok'] ?? false) {
+                $_SESSION['success'] = "✅ Cập nhật booking thành công!";
+                header("Location: index.php?act=admin-booking");
+                exit;
+            } else {
+                $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Cập nhật thất bại']);
+            }
+        } catch (\Exception $e) {
+            $_SESSION['error'] = "❌ Lỗi: " . $e->getMessage();
+            error_log("BookingController::update Error: " . $e->getMessage());
         }
 
-        // ❌ Xử lý lỗi
-        $_SESSION['error'] = $this->formatErrors($res['errors'] ?? ['Cập nhật thất bại']);
         header("Location: index.php?act=admin-booking-edit&id={$id}");
         exit;
     }
 
-    /** ------------------------
-     *  Hủy booking
-     */
     public function cancel(): void
     {
         $id = (int) ($_GET['id'] ?? 0);
@@ -294,9 +199,6 @@ class BookingController
         exit;
     }
 
-    /** ------------------------
-     *  Xác nhận booking (PENDING → CONFIRMED) 
-     */
     public function confirm(): void
     {
         $id = (int) ($_GET['id'] ?? 0);
@@ -331,9 +233,6 @@ class BookingController
         exit;
     }
 
-    /** ------------------------
-     *  ✅ HOÀN TẤT TOUR (IN_PROGRESS → COMPLETED)
-     */
     public function complete(): void
     {
         $id = (int) ($_GET['id'] ?? 0);
@@ -355,7 +254,6 @@ class BookingController
     {
         $id = (int) ($_POST['booking_id'] ?? $_GET['id'] ?? 0);
         $author_id = $_SESSION['user_id'] ?? null;
-
         $refundAmount = (float) ($_POST['refund_amount'] ?? 0);
         $reason = trim($_POST['refund_reason'] ?? '');
 
@@ -370,6 +268,7 @@ class BookingController
         }
         exit;
     }
+
     public function markReady(): void
     {
         $id = (int) ($_GET['id'] ?? 0);
@@ -386,9 +285,7 @@ class BookingController
         header("Location: index.php?act=admin-booking-detail&id={$id}");
         exit;
     }
-    /** ------------------------
-     *  Xem chi tiết booking
-     */
+
     public function detail(string $act): void
     {
         $id = (int) ($_GET['id'] ?? 0);
@@ -400,9 +297,7 @@ class BookingController
             exit;
         }
 
-        // ✅ THÊM: Lấy trạng thái thanh toán
         $booking['payment_status'] = $this->bookingModel->getPaymentStatus($id);
-
         $items = $this->itemModel->getItemsByBooking($id);
         $statusHistory = $this->bookingModel->getStatusHistory($id);
         $statusText = BookingModel::$statusLabels;
@@ -413,8 +308,8 @@ class BookingController
         include "./views/layout/adminLayout.php";
     }
 
-    /** ------------------------
-     *  Xóa item booking
+    /**
+     * ✅ XÓA ITEM
      */
     public function deleteItem(): void
     {
@@ -427,23 +322,26 @@ class BookingController
             exit;
         }
 
-        // ✅ Xóa item
-        $res = $this->itemModel->deleteItem($item_id);
+        try {
+            // Xóa item (soft delete) - tự động tính lại tổng tiền
+            $res = $this->itemModel->deleteItem($item_id);
 
-        if ($res) {
-            // ✅ Cập nhật lại tổng tiền booking
-            $this->itemModel->updateBookingTotal($booking_id);
-            $_SESSION['success'] = "✅ Đã xóa item thành công!";
-        } else {
-            $_SESSION['error'] = "❌ Xóa item thất bại!";
+            if ($res) {
+                $_SESSION['success'] = "✅ Đã xóa dịch vụ thành công!";
+            } else {
+                $_SESSION['error'] = "❌ Xóa dịch vụ thất bại!";
+            }
+        } catch (\Exception $e) {
+            $_SESSION['error'] = "❌ Lỗi: " . $e->getMessage();
+            error_log("BookingController::deleteItem Error: " . $e->getMessage());
         }
 
         header("Location: index.php?act=admin-booking-edit&id={$booking_id}");
         exit;
     }
 
-    /** ------------------------
-     *  Helper: Xử lý items (thêm/cập nhật)
+    /**
+     * ✅ XỬ LÝ ITEMS: Thêm mới hoặc cập nhật
      */
     private function handleBookingItems(int $booking_id, array $data): void
     {
@@ -452,37 +350,31 @@ class BookingController
         }
 
         foreach ($data['items'] as $item) {
-            if (empty($item['description']) || empty($item['qty'])) {
+            // Bỏ qua item rỗng
+            if (empty(trim($item['description'] ?? '')) || empty($item['qty'])) {
+                continue;
+            }
+
+            $description = trim($item['description']);
+            $qty = (int) $item['qty'];
+            $unit_price = (float) ($item['unit_price'] ?? 0);
+            $type = $item['type'] ?? 'SERVICE';
+
+            // Validate
+            if ($qty <= 0 || $unit_price < 0) {
                 continue;
             }
 
             if (!empty($item['id'])) {
-                // ✅ Cập nhật item có sẵn
-                $this->itemModel->updateItem(
-                    (int) $item['id'],
-                    $item['description'],
-                    (int) $item['qty'],
-                    (float) ($item['unit_price'] ?? 0)
-                );
+                // ✅ CẬP NHẬT item có sẵn
+                $this->itemModel->updateItem((int) $item['id'], $description, $qty, $unit_price);
             } else {
-                // ✅ Thêm item mới
-                $this->itemModel->addItem(
-                    $booking_id,
-                    $item['description'],
-                    (int) $item['qty'],
-                    (float) ($item['unit_price'] ?? 0),
-                    $item['type'] ?? 'SERVICE'
-                );
+                // ✅ THÊM item mới
+                $this->itemModel->addItem($booking_id, $description, $qty, $unit_price, $type);
             }
         }
-
-        // ✅ Cập nhật tổng tiền booking sau khi thêm/sửa items
-        $this->itemModel->updateBookingTotal($booking_id);
     }
 
-    /** ------------------------
-     *  Helper: Format errors thành chuỗi HTML
-     */
     private function formatErrors(array $errors): string
     {
         if (empty($errors)) {
@@ -496,17 +388,6 @@ class BookingController
             '</ul>';
     }
 
-    /** ------------------------
-     *  Helper: Validate CSRF token (optional)
-     */
-    private function validateCsrfToken(string $token): bool
-    {
-        return !empty($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
-    }
-
-    /** ------------------------
-     *  Helper: Generate CSRF token
-     */
     public function generateCsrfToken(): string
     {
         if (empty($_SESSION['csrf_token'])) {

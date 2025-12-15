@@ -76,6 +76,8 @@ class AuthController
             $role = $_SESSION['user']['role'];
             if ($role === 'ADMIN') {
                 header("Location: index.php?act=dashboard");
+            } elseif ($role === 'HDV') {
+                header("Location: index.php?act=assigned-tours");
             } else {
                 header("Location: index.php");
             }

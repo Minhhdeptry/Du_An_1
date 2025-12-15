@@ -82,7 +82,17 @@ class StaffModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-
+    public function getStaffByUserId($user_id)
+    {
+        $sql = "SELECT s.*, u.full_name, u.email 
+                FROM staffs s
+                JOIN users u ON u.id = s.user_id
+                WHERE s.user_id = ?";
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$user_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
 
     /**

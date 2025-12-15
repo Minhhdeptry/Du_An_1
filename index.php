@@ -40,19 +40,30 @@ $currentAct = $act;
 
 // ✅ Bước 5: Middleware - Kiểm tra đăng nhập
 $publicRoutes = ['sign-in', 'sign-up', 'logout'];
+$guideRoutes = [
+    'assigned-tours',
+    'tour-detail',
+    'booking-checkin',
+    'guide-dashboard',   
+];
 
 if (!in_array($act, $publicRoutes)) {
-    // Kiểm tra đã đăng nhập chưa
     if (!isset($_SESSION['user'])) {
-        $_SESSION['error'] = "Vui lòng đăng nhập để tiếp tục!";
+        $_SESSION['error'] = "Vui lòng đăng nhập!";
         header("Location: index.php?act=sign-in");
         exit();
     }
+    $role = $_SESSION['user']['role'];
 
-    // ✅ FIX: Chỉ kiểm tra role ADMIN cho các route có prefix "admin-"
-    if (strpos($act, 'admin-') === 0 && $_SESSION['user']['role'] !== 'ADMIN') {
+    if ($role === 'HDV' && !in_array($act, $guideRoutes)) {
         $_SESSION['error'] = "Bạn không có quyền truy cập!";
-        header("Location: index.php?act=sign-in");
+        header("Location: index.php?act=assigned-tours");
+        exit();
+    }
+
+    if ($role !== 'ADMIN' && $role !== 'HDV') {
+        $_SESSION['error'] = "Bạn không có quyền truy cập!";
+        header("Location: index.php");
         exit();
     }
 }
@@ -64,6 +75,15 @@ match ($act) {
   'sign-up' => (new AuthController())->SignUp(),
   'logout' => (new AuthController())->logout(),
 
+  // ================= GUIDE ===================
+    'assigned-tours' => (new StaffScheduleController())->assignedTours($currentAct),
+    'tour-detail' => (new StaffScheduleController())->tourDetail($_GET['tour_schedule_id'], $currentAct),
+    'booking-checkin' => (new BookingCustomerController())->checkIn(),
+    'guide-dashboard' => (function() use ($currentAct) {
+        $pageTitle = "Thống kê cá nhân";
+        $view = "./views/admin/Staff/guideDashboard.php";
+        include "./views/layout/adminLayout.php";
+    })(),
 
   // ================= TOUR ADMIN ===================
   'admin-tour' => (new TourController())->index($currentAct),
@@ -88,8 +108,7 @@ match ($act) {
   'admin-booking-mark-ready' => (new BookingController())->markReady(),
   'admin-booking-start-tour' => (new BookingController())->startTour(),
   'admin-booking-detail' => (new BookingController())->detail($currentAct),
-  // Xóa item dùng deleteItem()
-  'admin-booking-item-delete' => (new BookingController())->deleteItem(),
+  'admin-booking-delete-item' => (new BookingController())->deleteItem(),
   
   // ================= BOOKING-CUSTOMER ADMIN ===================
   'admin-booking-customer' => (new BookingCustomerController())->index($currentAct),

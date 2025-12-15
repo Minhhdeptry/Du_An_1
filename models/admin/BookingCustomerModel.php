@@ -1,14 +1,12 @@
 <?php
-// models/admin/BookingCustomerModel.php
 
 class BookingCustomerModel
 {
-    private $pdo;
+    private PDO $pdo;
 
-    public function __construct()
+    public function __construct(PDO $pdo)
     {
-        require_once "./commons/function.php";
-        $this->pdo = connectDB();
+        $this->pdo = $pdo;
     }
 
     /**

@@ -11,7 +11,7 @@
                 <?= strtoupper(substr($_SESSION['full_name'] ?? 'A', 0, 1)) ?>
             </div>
             <div class="user-info">
-                <div class="user-name"><?= htmlspecialchars($_SESSION['full_name'] ?? 'Admin User') ?></div>
+                <div class="user-name"><?= htmlspecialchars($_SESSION['user']['full_name'] ?? 'Admin User') ?></div>
                 <div class="user-role">
                     <?php
                     $roleLabels = [
@@ -19,13 +19,12 @@
                         'HDV' => 'Hướng dẫn viên',
                         'CUSTOMER' => 'Khách hàng'
                     ];
-                    echo $roleLabels[$_SESSION['role'] ?? 'ADMIN'] ?? 'User';
+                    echo $roleLabels[$_SESSION['user']['role'] ?? 'ADMIN'] ?? 'HDV';
                     ?>
                 </div>
             </div>
         </div>
 
-        <!-- Nút đăng xuất -->
         <a href="index.php?act=logout" class="btn btn-sm btn-outline-danger" 
            onclick="return confirm('Bạn có chắc muốn đăng xuất?')">
             <i class="fas fa-sign-out-alt"></i> Đăng xuất

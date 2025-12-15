@@ -5,11 +5,6 @@ class PaymentModel
 {
     private $pdo;
 
-    public function __construct(PDO $pdo)
-    {
-        $this->pdo = $pdo;
-    }
-
     public static $statusLabels = [
         'PENDING' => 'Chờ thanh toán',
         'SUCCESS' => 'Thành công',
@@ -33,15 +28,15 @@ class PaymentModel
     ];
 
 
-    // public function __construct($pdo = null)
-    // {
-    //     if ($pdo) {
-    //         $this->pdo = $pdo;  // Dùng chung kết nối
-    //     } else {
-    //         require_once "./commons/function.php";
-    //         $this->pdo = connectDB();
-    //     }
-    // }
+    public function __construct($pdo = null)
+    {
+        if ($pdo) {
+            $this->pdo = $pdo;  
+        } else {
+            require_once "./commons/function.php";
+            $this->pdo = connectDB();
+        }
+    }
 
 
     /** ========================

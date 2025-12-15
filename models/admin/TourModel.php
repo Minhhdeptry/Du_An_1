@@ -59,11 +59,6 @@ class TourModel
         return $tours;
     }
 
-    // Thêm method này vào models/admin/TourModel.php
-
-    /**
-     * Lấy thống kê của tour
-     */
     public function getTourStats($tour_id)
     {
         try {
@@ -319,6 +314,11 @@ class TourModel
         }
 
         return $tours;
+    }
+    public function delete(int $id): bool
+    {
+        $stmt = $this->pdo->prepare("DELETE FROM tours WHERE id = ?");
+        return $stmt->execute([$id]);
     }
 
 }

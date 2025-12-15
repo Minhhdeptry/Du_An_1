@@ -1,19 +1,22 @@
 <?php
 // controllers/admin/BookingCustomerController.php
 
+require_once "./commons/function.php";
 require_once "./models/admin/BookingCustomerModel.php";
 require_once "./models/admin/BookingModel.php";
 
 class BookingCustomerController
 {
-    private $model;
-    private $bookingModel;
+    private BookingCustomerModel $model;
+    private BookingModel $bookingModel;
+    private PDO $pdo;
 
     public function __construct()
     {
-        require_once "./commons/function.php";
-        $this->model = new BookingCustomerModel();
-        $this->bookingModel = new BookingModel();
+        $this->pdo = connectDB();
+
+        $this->model = new BookingCustomerModel($this->pdo);
+        $this->bookingModel = new BookingModel($this->pdo);
     }
 
     /**

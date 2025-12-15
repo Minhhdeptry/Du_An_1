@@ -42,7 +42,6 @@ class TourScheduleModel
         try {
             $today = date('Y-m-d');
 
-            // ✅ CASE 1: Tour quá lịch + KHÔNG có booking → CLOSED
             $sql1 = "UPDATE tour_schedule ts
                      SET ts.status = 'CLOSED'
                      WHERE ts.return_date < ?
@@ -55,7 +54,6 @@ class TourScheduleModel
             $stmt1 = $this->pdo->prepare($sql1);
             $stmt1->execute([$today]);
 
-            // ✅ CASE 2: Tour quá lịch + CÓ booking → FINISHED
             $sql2 = "UPDATE tour_schedule ts
                      SET ts.status = 'FINISHED'
                      WHERE ts.return_date < ?
@@ -68,8 +66,6 @@ class TourScheduleModel
             $stmt2 = $this->pdo->prepare($sql2);
             $stmt2->execute([$today]);
 
-            // ✅ CASE 3: Tour chưa đến lịch → OPEN (nếu đang là CLOSED)
-            // Chỉ áp dụng cho tour đã đóng do hết hạn, không ảnh hưởng CANCELED
             $sql3 = "UPDATE tour_schedule
                      SET status = 'OPEN'
                      WHERE depart_date >= ?
@@ -107,7 +103,6 @@ class TourScheduleModel
 
         $stmt = $this->pdo->prepare($sql);
 
-        // ✅ FIX: Cần 5 tham số vì có 5 dấu ? trong WHERE
         $searchTerm = "%$keyword%";
         $stmt->execute([
             $searchTerm,  // t.title LIKE ?
@@ -126,22 +121,27 @@ class TourScheduleModel
         $stmt->execute([$id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+    private function getTourType(int $tourId): string
+    {
+        $stmt = $this->pdo->prepare("SELECT tour_type FROM tour_category WHERE id = ?");
+        $stmt->execute([$tourId]);
+        return $stmt->fetchColumn() ?: 'REGULAR';
+    }
 
-    // Tạo lịch mới
     public function store($data)
     {
-        // Xử lý loại tour
-        $tourType = $data['tour_type'] ?? 'REGULAR';
+        // Lấy tour_type từ bảng tours
+        $tourType = $this->getTourType($data['tour_id']);
+
         $seatsTotal = ($tourType === 'ON_DEMAND') ? 0 : ($data['seats_total'] ?? 0);
         $seatsAvailable = $seatsTotal;
 
         $sql = "INSERT INTO tour_schedule 
-                (tour_id, tour_type, depart_date, return_date, seats_total, seats_available, price_adult, price_children, status, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                (tour_id, depart_date, return_date, seats_total, seats_available, price_adult, price_children, status, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             $data['tour_id'],
-            $tourType,
             $data['depart_date'],
             $data['return_date'],
             $seatsTotal,
@@ -153,21 +153,24 @@ class TourScheduleModel
         ]);
     }
 
-    // Cập nhật lịch
     public function update($id, $data)
     {
-        // Xử lý loại tour
-        $tourType = $data['tour_type'] ?? 'REGULAR';
+        $tourType = $this->getTourType($data['tour_id']);
         $seatsTotal = ($tourType === 'ON_DEMAND') ? 0 : ($data['seats_total'] ?? 0);
 
         $sql = "UPDATE tour_schedule SET
-                tour_id=?, tour_type=?, depart_date=?, return_date=?, seats_total=?, 
-                price_adult=?, price_children=?, status=?, note=?
+                tour_id=?,
+                depart_date=?,
+                return_date=?,
+                seats_total=?,
+                price_adult=?,
+                price_children=?,
+                status=?,
+                note=?
                 WHERE id=?";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             $data['tour_id'],
-            $tourType,
             $data['depart_date'],
             $data['return_date'],
             $seatsTotal,
@@ -178,13 +181,13 @@ class TourScheduleModel
             $id
         ]);
 
-        // Cập nhật seats_available dựa trên booking hiện tại
+        // seats_available
         if ($tourType === 'REGULAR') {
             $this->updateSeats($id);
         } else {
-            // Tour ON_DEMAND: set seats_available = 0
-            $stmt = $this->pdo->prepare("UPDATE tour_schedule SET seats_available = 0 WHERE id = ?");
-            $stmt->execute([$id]);
+            $this->pdo
+                ->prepare("UPDATE tour_schedule SET seats_available = 0 WHERE id = ?")
+                ->execute([$id]);
         }
     }
 

@@ -515,7 +515,7 @@ unset($_SESSION['old_data']);
                         <option value="MEAL">🍽️ Bữa ăn</option>
                         <option value="ROOM">🏨 Phòng đơn</option>
                         <option value="INSURANCE">🛡️ Bảo hiểm</option>
-                        <option value="TRANSPORT">🚗 Vận chuyển</option>
+                        <option value="TRANSPORT">🚗 Phương tiện</option>
                         <option value="OTHER">📦 Khác</option>
                     </select>
                 </div>
